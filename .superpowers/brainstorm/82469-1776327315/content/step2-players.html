@@ -1,0 +1,136 @@
+<h2>Step 2: Players</h2>
+<p class="subtitle">Configure 5-10 AI players with their models</p>
+
+<div class="mockup">
+  <div class="mockup-header">Setup Screen - Step 2</div>
+  <div class="mockup-body" style="background: #fff; padding: 40px;">
+
+    <!-- Header -->
+    <div style="text-align: center; margin-bottom: 32px;">
+      <div style="font-size: 24px; font-weight: 600; color: #111;">🎭 Secret Hitler LLM Arena</div>
+    </div>
+
+    <!-- Progress Steps -->
+    <div style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 40px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 32px; height: 32px; background: #22c55e; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;">✓</div>
+        <span style="color: #22c55e;">API Key</span>
+      </div>
+      <div style="width: 48px; height: 2px; background: #22c55e;"></div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 32px; height: 32px; background: #111; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 500;">2</div>
+        <span style="font-weight: 500;">Players</span>
+      </div>
+      <div style="width: 48px; height: 2px; background: #e5e5e5;"></div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 32px; height: 32px; background: #e5e5e5; color: #999; border-radius: 50%; display: flex; align-items: center; justify-content: center;">3</div>
+        <span style="color: #999;">Settings</span>
+      </div>
+      <div style="width: 48px; height: 2px; background: #e5e5e5;"></div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 32px; height: 32px; background: #e5e5e5; color: #999; border-radius: 50%; display: flex; align-items: center; justify-content: center;">4</div>
+        <span style="color: #999;">Start</span>
+      </div>
+    </div>
+
+    <!-- Card -->
+    <div style="max-width: 600px; margin: 0 auto; background: #fafafa; border: 1px solid #e5e5e5; border-radius: 12px; padding: 32px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div>
+          <div style="font-size: 18px; font-weight: 500;">Configure Players</div>
+          <div style="color: #666; font-size: 14px;">Add 5-10 AI players to compete</div>
+        </div>
+        <div style="font-size: 14px; color: #666;">5/10 players</div>
+      </div>
+
+      <!-- Quick Fill Buttons -->
+      <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+        <button style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; font-size: 12px; cursor: pointer;">All Llama 8B</button>
+        <button style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; font-size: 12px; cursor: pointer;">All Mistral</button>
+        <button style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; font-size: 12px; cursor: pointer;">Mixed Budget</button>
+        <button style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; font-size: 12px; cursor: pointer;">Mixed Premium</button>
+      </div>
+
+      <!-- Player List -->
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+        <!-- Player Row 1 -->
+        <div style="display: flex; gap: 12px; align-items: center; background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px;">
+          <div style="width: 32px; height: 32px; background: #f0f0f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 500; color: #666;">1</div>
+          <input type="text" value="Agent Alpha" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+          <select style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: white;">
+            <option>meta-llama/llama-3.1-8b</option>
+          </select>
+          <button style="padding: 8px; border: none; background: none; color: #999; cursor: pointer; font-size: 16px;">×</button>
+        </div>
+
+        <!-- Player Row 2 -->
+        <div style="display: flex; gap: 12px; align-items: center; background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px;">
+          <div style="width: 32px; height: 32px; background: #f0f0f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 500; color: #666;">2</div>
+          <input type="text" value="Agent Beta" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+          <select style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: white;">
+            <option>mistralai/mistral-7b</option>
+          </select>
+          <button style="padding: 8px; border: none; background: none; color: #999; cursor: pointer; font-size: 16px;">×</button>
+        </div>
+
+        <!-- Player Row 3 -->
+        <div style="display: flex; gap: 12px; align-items: center; background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px;">
+          <div style="width: 32px; height: 32px; background: #f0f0f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 500; color: #666;">3</div>
+          <input type="text" value="Agent Gamma" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+          <select style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: white;">
+            <option>openai/gpt-4o</option>
+          </select>
+          <button style="padding: 8px; border: none; background: none; color: #999; cursor: pointer; font-size: 16px;">×</button>
+        </div>
+
+        <!-- Player Row 4 -->
+        <div style="display: flex; gap: 12px; align-items: center; background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px;">
+          <div style="width: 32px; height: 32px; background: #f0f0f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 500; color: #666;">4</div>
+          <input type="text" value="Agent Delta" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+          <select style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: white;">
+            <option>anthropic/claude-3-haiku</option>
+          </select>
+          <button style="padding: 8px; border: none; background: none; color: #999; cursor: pointer; font-size: 16px;">×</button>
+        </div>
+
+        <!-- Player Row 5 -->
+        <div style="display: flex; gap: 12px; align-items: center; background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px;">
+          <div style="width: 32px; height: 32px; background: #f0f0f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 500; color: #666;">5</div>
+          <input type="text" value="Agent Epsilon" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+          <select style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: white;">
+            <option>google/gemma-2-9b</option>
+          </select>
+          <button style="padding: 8px; border: none; background: none; color: #999; cursor: pointer; font-size: 16px;">×</button>
+        </div>
+      </div>
+
+      <!-- Add Player Button -->
+      <button style="width: 100%; padding: 12px; border: 1px dashed #ccc; border-radius: 8px; background: white; color: #666; cursor: pointer; font-size: 14px; margin-bottom: 24px;">
+        + Add Player
+      </button>
+
+      <!-- Navigation -->
+      <div style="display: flex; justify-content: space-between;">
+        <button style="padding: 14px 24px; background: white; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; cursor: pointer;">
+          ← Back
+        </button>
+        <button style="padding: 14px 24px; background: #111; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;">
+          Continue →
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Behavior Notes</h3>
+  <ul>
+    <li><strong>Quick Fill:</strong> Populates all players with preset model configurations</li>
+    <li><strong>Model dropdown:</strong> Searchable, grouped by provider (OpenAI, Anthropic, Meta, etc.)</li>
+    <li><strong>Remove button (×):</strong> Only shows if more than 5 players</li>
+    <li><strong>Add Player:</strong> Only shows if fewer than 10 players</li>
+    <li><strong>Auto-naming:</strong> New players get sequential Greek letters (Alpha, Beta, Gamma...)</li>
+    <li><strong>Validation:</strong> Continue disabled if fewer than 5 players</li>
+  </ul>
+</div>

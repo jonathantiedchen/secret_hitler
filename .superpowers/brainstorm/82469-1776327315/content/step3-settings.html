@@ -1,0 +1,173 @@
+<h2>Step 3: Settings</h2>
+<p class="subtitle">Configure game options and behavior</p>
+
+<div class="mockup">
+  <div class="mockup-header">Setup Screen - Step 3</div>
+  <div class="mockup-body" style="background: #fff; padding: 40px;">
+
+    <!-- Header -->
+    <div style="text-align: center; margin-bottom: 32px;">
+      <div style="font-size: 24px; font-weight: 600; color: #111;">🎭 Secret Hitler LLM Arena</div>
+    </div>
+
+    <!-- Progress Steps -->
+    <div style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 40px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 32px; height: 32px; background: #22c55e; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;">✓</div>
+        <span style="color: #22c55e;">API Key</span>
+      </div>
+      <div style="width: 48px; height: 2px; background: #22c55e;"></div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 32px; height: 32px; background: #22c55e; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;">✓</div>
+        <span style="color: #22c55e;">Players</span>
+      </div>
+      <div style="width: 48px; height: 2px; background: #22c55e;"></div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 32px; height: 32px; background: #111; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 500;">3</div>
+        <span style="font-weight: 500;">Settings</span>
+      </div>
+      <div style="width: 48px; height: 2px; background: #e5e5e5;"></div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 32px; height: 32px; background: #e5e5e5; color: #999; border-radius: 50%; display: flex; align-items: center; justify-content: center;">4</div>
+        <span style="color: #999;">Start</span>
+      </div>
+    </div>
+
+    <!-- Card -->
+    <div style="max-width: 560px; margin: 0 auto; background: #fafafa; border: 1px solid #e5e5e5; border-radius: 12px; padding: 32px;">
+      <div style="margin-bottom: 24px;">
+        <div style="font-size: 18px; font-weight: 500;">Game Settings</div>
+        <div style="color: #666; font-size: 14px;">Customize game behavior and display options</div>
+      </div>
+
+      <!-- Timing Section -->
+      <div style="margin-bottom: 24px;">
+        <div style="font-size: 14px; font-weight: 500; margin-bottom: 12px; color: #333;">Timing</div>
+
+        <div style="background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px;">
+          <!-- Speed Mode -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+              <div style="font-size: 14px; font-weight: 500;">Speed Mode</div>
+              <div style="font-size: 12px; color: #666;">How fast should the game progress?</div>
+            </div>
+            <select style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: white; min-width: 140px;">
+              <option>Realtime (delays)</option>
+              <option>Fast (no delays)</option>
+            </select>
+          </div>
+
+          <!-- Delay Slider (shown when Realtime) -->
+          <div style="padding-top: 12px; border-top: 1px solid #f0f0f0;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="font-size: 13px; color: #666;">Action delay</span>
+              <span style="font-size: 13px; font-weight: 500;">2.0s</span>
+            </div>
+            <input type="range" style="width: 100%; accent-color: #111;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #999;">
+              <span>0.5s</span>
+              <span>5s</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Display Section -->
+      <div style="margin-bottom: 24px;">
+        <div style="font-size: 14px; font-weight: 500; margin-bottom: 12px; color: #333;">Display</div>
+
+        <div style="background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px;">
+          <!-- Show Thoughts -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+              <div style="font-size: 14px;">Show AI Thoughts</div>
+              <div style="font-size: 12px; color: #666;">Display internal reasoning for each action</div>
+            </div>
+            <div style="width: 44px; height: 24px; background: #111; border-radius: 12px; position: relative; cursor: pointer;">
+              <div style="width: 20px; height: 20px; background: white; border-radius: 50%; position: absolute; right: 2px; top: 2px;"></div>
+            </div>
+          </div>
+
+          <!-- Show Roles -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+              <div style="font-size: 14px;">Reveal Roles</div>
+              <div style="font-size: 12px; color: #666;">Show all player roles from start (spoilers!)</div>
+            </div>
+            <div style="width: 44px; height: 24px; background: #e5e5e5; border-radius: 12px; position: relative; cursor: pointer;">
+              <div style="width: 20px; height: 20px; background: white; border-radius: 50%; position: absolute; left: 2px; top: 2px;"></div>
+            </div>
+          </div>
+
+          <!-- Show Vote History -->
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-size: 14px;">Vote History Panel</div>
+              <div style="font-size: 12px; color: #666;">Show voting patterns sidebar</div>
+            </div>
+            <div style="width: 44px; height: 24px; background: #111; border-radius: 12px; position: relative; cursor: pointer;">
+              <div style="width: 20px; height: 20px; background: white; border-radius: 50%; position: absolute; right: 2px; top: 2px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LLM Section -->
+      <div style="margin-bottom: 24px;">
+        <div style="font-size: 14px; font-weight: 500; margin-bottom: 12px; color: #333;">LLM Behavior</div>
+
+        <div style="background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px;">
+          <!-- Max Retries -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+              <div style="font-size: 14px;">Max Retries</div>
+              <div style="font-size: 12px; color: #666;">Retries on invalid response format</div>
+            </div>
+            <select style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: white;">
+              <option>1</option>
+              <option>2</option>
+              <option selected>3</option>
+              <option>5</option>
+            </select>
+          </div>
+
+          <!-- Temperature -->
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-size: 14px;">Temperature</div>
+              <div style="font-size: 12px; color: #666;">Creativity level for responses</div>
+            </div>
+            <select style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: white;">
+              <option>0.3 (focused)</option>
+              <option selected>0.7 (balanced)</option>
+              <option>1.0 (creative)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div style="display: flex; justify-content: space-between;">
+        <button style="padding: 14px 24px; background: white; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; cursor: pointer;">
+          ← Back
+        </button>
+        <button style="padding: 14px 24px; background: #111; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;">
+          Review & Start →
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Behavior Notes</h3>
+  <ul>
+    <li><strong>Speed Mode:</strong> "Realtime" shows delay slider; "Fast" hides it and runs at max speed</li>
+    <li><strong>Toggle switches:</strong> Dark = on, light = off</li>
+    <li><strong>Show AI Thoughts:</strong> Default ON - this is a key feature for spectating</li>
+    <li><strong>Reveal Roles:</strong> Default OFF - preserves suspense</li>
+    <li><strong>Settings persist:</strong> Saved to localStorage for next session</li>
+    <li><strong>Sensible defaults:</strong> New users can just click "Review & Start"</li>
+  </ul>
+</div>

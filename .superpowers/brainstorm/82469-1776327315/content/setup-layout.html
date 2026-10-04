@@ -1,0 +1,93 @@
+<h2>How should the Setup Screen be laid out?</h2>
+<p class="subtitle">Consider the flow: API key → Players → Settings → Start</p>
+
+<div class="cards">
+  <div class="card" data-choice="single-column" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #fff; padding: 16px; min-height: 220px; border: 1px solid #e5e5e5;">
+      <div style="max-width: 400px; margin: 0 auto;">
+        <div style="text-align: center; font-weight: 600; margin-bottom: 12px;">🎭 Secret Hitler Arena</div>
+        <div style="background: #f9f9f9; border: 1px solid #eee; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
+          <div style="font-size: 10px; color: #666;">API Key</div>
+          <div style="background: white; border: 1px solid #ddd; border-radius: 4px; height: 24px; margin-top: 4px;"></div>
+        </div>
+        <div style="background: #f9f9f9; border: 1px solid #eee; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
+          <div style="font-size: 10px; color: #666;">Players (5-10)</div>
+          <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; height: 20px;"></div>
+            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; height: 20px;"></div>
+            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; height: 20px;"></div>
+          </div>
+        </div>
+        <div style="background: #f9f9f9; border: 1px solid #eee; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
+          <div style="font-size: 10px; color: #666;">Settings</div>
+        </div>
+        <div style="background: #111; color: white; text-align: center; padding: 8px; border-radius: 6px; font-size: 12px;">Start Game</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Single Column (Centered)</h3>
+      <p>Simple vertical flow. Easy to scan, works great on any screen size. May require scrolling with many players.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="two-column" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #fff; padding: 16px; min-height: 220px; border: 1px solid #e5e5e5;">
+      <div style="text-align: center; font-weight: 600; margin-bottom: 12px;">🎭 Secret Hitler Arena</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div>
+          <div style="background: #f9f9f9; border: 1px solid #eee; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
+            <div style="font-size: 10px; color: #666;">API Key</div>
+            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; height: 24px; margin-top: 4px;"></div>
+          </div>
+          <div style="background: #f9f9f9; border: 1px solid #eee; border-radius: 6px; padding: 10px;">
+            <div style="font-size: 10px; color: #666;">Settings</div>
+            <div style="margin-top: 8px; font-size: 10px;">☑ Mock mode</div>
+            <div style="font-size: 10px;">☐ Show roles</div>
+          </div>
+        </div>
+        <div>
+          <div style="background: #f9f9f9; border: 1px solid #eee; border-radius: 6px; padding: 10px; height: calc(100% - 20px);">
+            <div style="font-size: 10px; color: #666;">Players</div>
+            <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+              <div style="background: white; border: 1px solid #ddd; border-radius: 4px; height: 18px;"></div>
+              <div style="background: white; border: 1px solid #ddd; border-radius: 4px; height: 18px;"></div>
+              <div style="background: white; border: 1px solid #ddd; border-radius: 4px; height: 18px;"></div>
+              <div style="background: white; border: 1px solid #ddd; border-radius: 4px; height: 18px;"></div>
+              <div style="background: white; border: 1px solid #ddd; border-radius: 4px; height: 18px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="background: #111; color: white; text-align: center; padding: 8px; border-radius: 6px; font-size: 12px; margin-top: 12px;">Start Game</div>
+    </div>
+    <div class="card-body">
+      <h3>Two Column Split</h3>
+      <p>Config on left, players on right. Efficient use of space, sees everything at once. Good for desktop.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="wizard-steps" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #fff; padding: 16px; min-height: 220px; border: 1px solid #e5e5e5;">
+      <div style="text-align: center; font-weight: 600; margin-bottom: 8px;">🎭 Secret Hitler Arena</div>
+      <div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 12px;">
+        <div style="width: 24px; height: 24px; background: #111; color: white; border-radius: 50%; font-size: 10px; display: flex; align-items: center; justify-content: center;">1</div>
+        <div style="width: 40px; height: 2px; background: #ddd; align-self: center;"></div>
+        <div style="width: 24px; height: 24px; background: #eee; color: #999; border-radius: 50%; font-size: 10px; display: flex; align-items: center; justify-content: center;">2</div>
+        <div style="width: 40px; height: 2px; background: #ddd; align-self: center;"></div>
+        <div style="width: 24px; height: 24px; background: #eee; color: #999; border-radius: 50%; font-size: 10px; display: flex; align-items: center; justify-content: center;">3</div>
+      </div>
+      <div style="max-width: 350px; margin: 0 auto;">
+        <div style="background: #f9f9f9; border: 1px solid #eee; border-radius: 6px; padding: 16px; text-align: center;">
+          <div style="font-size: 12px; font-weight: 500; margin-bottom: 8px;">Step 1: Connect to OpenRouter</div>
+          <div style="font-size: 10px; color: #666; margin-bottom: 12px;">Enter your API key to get started</div>
+          <div style="background: white; border: 1px solid #ddd; border-radius: 4px; height: 32px; margin-bottom: 12px;"></div>
+          <div style="background: #111; color: white; padding: 8px 16px; border-radius: 6px; font-size: 12px; display: inline-block;">Validate & Continue →</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Step-by-Step Wizard</h3>
+      <p>Guided flow: API → Players → Settings → Start. Less overwhelming for new users, but more clicks to start.</p>
+    </div>
+  </div>
+</div>
