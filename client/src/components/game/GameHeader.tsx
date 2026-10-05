@@ -14,7 +14,7 @@ interface GameHeaderProps {
   historyDescription: string | null;
 }
 
-export function GameHeader({ round, cost, isPaused, gameId, onPauseToggle, historyIndex, totalSnapshots, historyDescription }: GameHeaderProps) {
+export function GameHeader({ round, cost, isPaused, gameId, onPauseToggle, historyIndex, totalSnapshots }: GameHeaderProps) {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
 
