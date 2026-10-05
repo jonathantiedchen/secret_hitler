@@ -7,6 +7,11 @@ import type { GameState, Vote, GameEvent, GameHistory, Player } from './game/typ
 import { OpenRouterClient, MockLLMClient } from './ai/openrouter.js';
 import { getSystemPrompt, buildStateHeader, getNominationPrompt, getVotingPrompt, getPresidentLegislationPrompt, getChancellorLegislationPrompt, getExecutionPrompt, getInvestigationPrompt, getSpecialElectionPrompt, getVetoResponsePrompt, SYSTEM_PROMPT_VERSION } from './ai/prompts.js';
 import type { ChatMessage } from './ai/openrouter.js';
+import { buildGameLog, writeGameLog, type GameLogStatus, type LLMCallRecord } from './logging/gameLog.js';
+import { fileURLToPath } from 'node:url';
+
+// Game logs go to <repo>/logs by default (same depth from src/ and dist/)
+const LOG_DIRECTORY = process.env.LOG_DIRECTORY || fileURLToPath(new URL('../../logs', import.meta.url));
 
 const app = express();
 const httpServer = createServer(app);
@@ -51,6 +56,10 @@ const games = new Map<string, {
   // Append-only log of public events; each player reads it from their own cursor
   publicEvents: PublicEvent[];
   publicEventCursor: Map<string, number>;
+  // Every LLM request, for the game log
+  llmCalls: LLMCallRecord[];
+  // Messages added to each player's conversation since their last logged call
+  unloggedMessages: Map<string, ChatMessage[]>;
 }>();
 
 type GameRecord = typeof games extends Map<string, infer T> ? T : never;
@@ -135,6 +144,8 @@ app.post('/api/games', (req, res) => {
     ),
     publicEvents: [],
     publicEventCursor: new Map(gameState.players.map((p) => [p.id, 0])),
+    llmCalls: [],
+    unloggedMessages: new Map(gameState.players.map((p) => [p.id, []])),
   });
 
   res.json({ gameId, state: sanitizeGameState(gameState) });
@@ -321,6 +332,7 @@ function createSnapshot(
 function appendToHistory(game: GameRecord, playerId: string, message: ChatMessage) {
   const history = game.playerMessages.get(playerId)!;
   history.push(message);
+  game.unloggedMessages.get(playerId)!.push(message);
   const cap = Math.max(2, game.settings.maxHistoryMessages);
   if (history.length > cap) {
     history.splice(1, history.length - cap);
@@ -370,17 +382,52 @@ async function askPlayer(
 
   const history = game.playerMessages.get(player.id)!;
   const prompt = [...history];
+  const call: LLMCallRecord = {
+    playerId: player.id,
+    round: game.state.round,
+    phase: game.state.phase,
+    timestamp: Date.now(),
+    newMessages: game.unloggedMessages.get(player.id)!.splice(0),
+    promptMessageCount: prompt.length,
+    response: null,
+    model: null,
+    usage: null,
+    cost: 0,
+    latencyMs: 0,
+  };
+  game.llmCalls.push(call);
+
   try {
     const response = await llmClient.chat(player.model, history, {
       temperature: game.settings.temperature,
       maxTokens: game.settings.maxTokens,
     });
+    Object.assign(call, {
+      response: response.content,
+      model: response.model,
+      usage: response.usage,
+      cost: response.cost,
+      latencyMs: Date.now() - call.timestamp,
+    });
     appendToHistory(game, player.id, { role: 'assistant', content: response.content });
+    // The reply is logged in this call, not as a new message for the next one
+    game.unloggedMessages.get(player.id)!.pop();
     return { response, prompt };
   } catch (error) {
+    call.error = error instanceof Error ? error.message : String(error);
+    call.latencyMs = Date.now() - call.timestamp;
     // Drop the unanswered prompt so the next turn doesn't start with a dangling question
     history.pop();
     throw error;
+  }
+}
+
+// Write the game log to disk. Failures are reported but never stop the game.
+function saveGameLog(game: GameRecord, status: GameLogStatus) {
+  try {
+    return writeGameLog(LOG_DIRECTORY, buildGameLog(game, status));
+  } catch (error) {
+    console.error(`Failed to write game log for ${game.history.gameId}:`, error);
   }
 }
 
@@ -427,8 +474,16 @@ async function runGameLoop(gameId: string) {
   createSnapshot(game, `Game Start - Round ${game.state.round}, ${president.name} is President`);
   emit('history_nav', { currentIndex: null, totalSnapshots: game.snapshots.length, isLive: true });
 
+  let loggedRound = game.state.round;
+
   try {
     while (game.state.phase !== 'game_over' && game.isRunning) {
+      // Save progress each round, so an interrupted game still leaves data
+      if (game.state.round !== loggedRound) {
+        loggedRound = game.state.round;
+        saveGameLog(game, 'in_progress');
+      }
+
       // Wait while paused
       while (game.isPaused && game.isRunning) {
         await delay(500);
@@ -504,6 +559,9 @@ async function runGameLoop(gameId: string) {
       fascistPolicies: game.state.fascistPolicies,
     });
 
+    const logPath = saveGameLog(game, game.state.phase === 'game_over' ? 'completed' : 'aborted');
+    if (logPath) console.log(`📝 Game log written to ${logPath}`);
+
     emit('state', sanitizeGameState(game.state));
     emit('game_over', {
       winner: game.state.winner,
@@ -511,6 +569,8 @@ async function runGameLoop(gameId: string) {
     });
   } catch (error) {
     console.error('Game loop error:', error);
+    game.history.endTime = Date.now();
+    saveGameLog(game, 'aborted');
     emit('error', { message: 'Game error occurred' });
     game.isRunning = false;
   }
