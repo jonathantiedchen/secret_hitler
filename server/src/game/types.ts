@@ -10,6 +10,7 @@ export type GamePhase =
   | 'voting'          // All players vote
   | 'legislation_president'   // President draws and discards
   | 'legislation_chancellor'  // Chancellor enacts policy
+  | 'veto_proposed'           // Chancellor proposed a veto, President responds
   | 'policy_enacted'          // Brief phase showing result
   | 'executive_action'        // President uses power (if unlocked)
   | 'game_over';
@@ -52,6 +53,8 @@ export interface GameState {
   liberalPolicies: number;
   fascistPolicies: number;
   failedElections: number;
+  // President refused a veto this legislative session; the Chancellor must enact
+  vetoRefused: boolean;
 
   // Current action state
   votes: Map<string, Vote>;
@@ -102,6 +105,8 @@ export type GameEventType =
   | 'cards_drawn'
   | 'president_discard'
   | 'chancellor_enact'
+  | 'veto_proposed'
+  | 'veto_response'
   | 'policy_enacted'
   | 'investigation'
   | 'execution'

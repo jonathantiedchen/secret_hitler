@@ -8,6 +8,7 @@ export type GamePhase =
   | 'voting'
   | 'legislation_president'
   | 'legislation_chancellor'
+  | 'veto_proposed'
   | 'policy_enacted'
   | 'executive_action'
   | 'game_over';
@@ -193,6 +194,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
         return state.presidentIndex;
       case 'legislation_chancellor':
         return state.chancellorIndex ?? state.presidentIndex;
+      case 'veto_proposed':
       case 'executive_action':
         return state.presidentIndex;
       default:

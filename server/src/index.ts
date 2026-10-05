@@ -2,10 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { createGame, nominate, castVote, tallyVotes, resolveVote, drawCards, presidentDiscard, chancellorEnact, executePlayer, investigatePlayer, specialElection, getValidChancellorCandidates, finishPolicyEnacted, peekCards } from './game/engine.js';
+import { createGame, nominate, castVote, tallyVotes, resolveVote, drawCards, presidentDiscard, chancellorEnact, executePlayer, investigatePlayer, specialElection, getValidChancellorCandidates, finishPolicyEnacted, peekCards, proposeVeto, respondToVeto, isVetoUnlocked } from './game/engine.js';
 import type { GameState, Vote, GameEvent, GameHistory, Player } from './game/types.js';
 import { OpenRouterClient, MockLLMClient } from './ai/openrouter.js';
-import { getSystemPrompt, buildStateHeader, getNominationPrompt, getVotingPrompt, getPresidentLegislationPrompt, getChancellorLegislationPrompt, getExecutionPrompt, getInvestigationPrompt, getSpecialElectionPrompt } from './ai/prompts.js';
+import { getSystemPrompt, buildStateHeader, getNominationPrompt, getVotingPrompt, getPresidentLegislationPrompt, getChancellorLegislationPrompt, getExecutionPrompt, getInvestigationPrompt, getSpecialElectionPrompt, getVetoResponsePrompt } from './ai/prompts.js';
 import type { ChatMessage } from './ai/openrouter.js';
 
 const app = express();
@@ -476,6 +476,10 @@ async function runGameLoop(gameId: string) {
           break;
         }
 
+        case 'veto_proposed':
+          await handleVetoResponse(game, llmClient, emit, trackCost);
+          break;
+
         case 'executive_action':
           await handleExecutiveAction(game, llmClient, emit, trackCost);
           break;
@@ -923,16 +927,18 @@ async function handleChancellorLegislation(
 
   emit('cards_received', { playerId: chancellor.id, cards });
 
-  // Create snapshot with chancellor's received cards
-  const cardSummary = cards.map(c => c === 'liberal' ? 'L' : 'F').join('');
-  createSnapshot(game, `Round ${game.state.round}: Chancellor received ${cardSummary}`, {
-    legislation: {
-      presidentCards: [], // Already discarded
-      discardedCard: null,
-      chancellorCards: cards,
-    },
-  });
-  emit('history_nav', { currentIndex: null, totalSnapshots: game.snapshots.length, isLive: true });
+  // Create snapshot with chancellor's received cards (once per session, not again after a refused veto)
+  if (!game.state.vetoRefused) {
+    const cardSummary = cards.map(c => c === 'liberal' ? 'L' : 'F').join('');
+    createSnapshot(game, `Round ${game.state.round}: Chancellor received ${cardSummary}`, {
+      legislation: {
+        presidentCards: [], // Already discarded
+        discardedCard: null,
+        chancellorCards: cards,
+      },
+    });
+    emit('history_nav', { currentIndex: null, totalSnapshots: game.snapshots.length, isLive: true });
+  }
 
   const legislationPrompt = getChancellorLegislationPrompt(game.state, cards);
 
@@ -989,6 +995,19 @@ async function handleChancellorLegislation(
       }
     }
 
+    // Veto proposal: public request to the President instead of enacting
+    if (parsed.action?.type === 'veto' && isVetoUnlocked(game.state) && !game.state.vetoRefused) {
+      game.state = proposeVeto(game.state);
+      const request = parsed.dialogue || 'I wish to veto this agenda.';
+      createEvent(game, 'veto_proposed', { playerId: chancellor.id, playerName: chancellor.name, cards });
+      createEvent(game, 'dialogue', { playerId: chancellor.id, playerName: chancellor.name, content: request });
+      publishEvent(game, `Chancellor ${chancellor.name} proposed to veto this agenda.`);
+      publishEvent(game, `${chancellor.name}: "${request}"`, chancellor.id);
+      emit('dialogue', { playerId: chancellor.id, playerName: chancellor.name, content: request });
+      emit('veto_proposed', { chancellorName: chancellor.name });
+      return;
+    }
+
     // NOTE: No dialogue during legislation - it's done in silence per rules
 
     const enactIndex = parsed.action?.index ?? 0;
@@ -1034,6 +1053,65 @@ async function handleChancellorLegislation(
       discardedCard,
       chancellorName: chancellor.name,
     });
+  }
+}
+
+async function handleVetoResponse(
+  game: ReturnType<typeof games.get> & {},
+  llmClient: OpenRouterClient | MockLLMClient,
+  emit: (event: string, data: unknown) => void,
+  trackCost: (cost: number) => void
+) {
+  const president = game.state.players[game.state.presidentIndex];
+  const cards = game.state.drawnCards;
+
+  createEvent(game, 'thinking', { playerId: president.id, playerName: president.name });
+  emit('thinking', { playerId: president.id, playerName: president.name });
+
+  // Default to refusing: the agenda stands unless the President clearly agrees
+  let accept = false;
+  try {
+    const { response, prompt } = await askPlayer(game, llmClient, president, getVetoResponsePrompt(game.state));
+    trackCost(response.cost);
+    emit('debug', {
+      playerId: president.id,
+      playerName: president.name,
+      model: president.model,
+      phase: 'veto_proposed',
+      prompt,
+      response: response.content,
+    });
+
+    const parsed = JSON.parse(response.content);
+    accept = parsed.action?.accept === true;
+
+    if (parsed.thought) {
+      createEvent(game, 'thought', { playerId: president.id, playerName: president.name, content: parsed.thought });
+      if (game.settings.showThoughts) {
+        emit('thought', { playerId: president.id, playerName: president.name, content: parsed.thought });
+      }
+    }
+    if (parsed.dialogue) {
+      createEvent(game, 'dialogue', { playerId: president.id, playerName: president.name, content: parsed.dialogue });
+      publishEvent(game, `${president.name}: "${parsed.dialogue}"`, president.id);
+      emit('dialogue', { playerId: president.id, playerName: president.name, content: parsed.dialogue });
+    }
+  } catch (e) {
+    console.error(`Veto response error for ${president.name}:`, e);
+  }
+
+  const before = game.state;
+  game.state = respondToVeto(game.state, accept);
+  createEvent(game, 'veto_response', { playerId: president.id, playerName: president.name, accept, cards });
+  emit('veto_response', { presidentName: president.name, accept });
+
+  if (!accept) {
+    publishEvent(game, `President ${president.name} refused the veto. The Chancellor must enact a policy.`);
+  } else if (game.state.liberalPolicies !== before.liberalPolicies || game.state.fascistPolicies !== before.fascistPolicies) {
+    const policy = game.state.liberalPolicies !== before.liberalPolicies ? 'LIBERAL' : 'FASCIST';
+    publishEvent(game, `President ${president.name} agreed to the veto. Both policies were discarded (tracker 3/3). Chaos: a ${policy} policy was auto-enacted from the top of the deck. ${formatTracks(game.state)}`);
+  } else {
+    publishEvent(game, `President ${president.name} agreed to the veto. Both policies were discarded (tracker ${game.state.failedElections}/3).`);
   }
 }
 

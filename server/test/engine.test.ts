@@ -14,6 +14,8 @@ import {
   specialElection,
   peekCards,
   finishPolicyEnacted,
+  proposeVeto,
+  respondToVeto,
 } from '../src/game/engine.js';
 import { getExecutiveAction, getRoleDistribution } from '../src/game/types.js';
 import type { GameState, Vote } from '../src/game/types.js';
@@ -332,5 +334,83 @@ describe('policy peek', () => {
       game = drawCards(voteAll(nominate(finishPolicyEnacted(game), 2), 'ja'));
       expect(game.drawnCards).toEqual(peeked);
     }
+  });
+});
+
+describe('veto', () => {
+  // Elected government (president 0, chancellor 1) with the chancellor holding 2 cards
+  function chancellorHolding(extra: Partial<GameState> = {}) {
+    let game = makeGame(7, { fascistPolicies: 5, drawPile: deck('F', 'L', 'F', 'L', 'L', 'L'), ...extra });
+    game = voteAll(nominate(game, 1), 'ja');
+    return presidentDiscard(drawCards(game), 0);
+  }
+
+  it('is not available before 5 fascist policies', () => {
+    expect(() => proposeVeto(chancellorHolding({ fascistPolicies: 4 }))).toThrow(/not unlocked/);
+  });
+
+  it('can only be proposed by a chancellor holding 2 cards', () => {
+    const game = voteAll(nominate(makeGame(7, { fascistPolicies: 5 }), 1), 'ja');
+    expect(() => proposeVeto(game)).toThrow(/holding 2/);
+  });
+
+  it('proposing a veto asks the president to respond', () => {
+    expect(proposeVeto(chancellorHolding()).phase).toBe('veto_proposed');
+  });
+
+  it('an accepted veto discards both cards and enacts nothing', () => {
+    const before = chancellorHolding();
+    const game = respondToVeto(proposeVeto(before), true);
+    expect(game.liberalPolicies).toBe(0);
+    expect(game.fascistPolicies).toBe(5);
+    expect(game.drawnCards).toEqual([]);
+    expect(game.discardPile).toEqual([...before.discardPile, ...before.drawnCards]);
+  });
+
+  it('an accepted veto advances the election tracker and passes the presidency', () => {
+    const game = respondToVeto(proposeVeto(chancellorHolding({ failedElections: 0 })), true);
+    expect(game.failedElections).toBe(1);
+    expect(game.phase).toBe('nomination');
+    expect(game.presidentIndex).toBe(1);
+  });
+
+  it('an accepted veto keeps the vetoing government term-limited', () => {
+    const game = respondToVeto(proposeVeto(chancellorHolding()), true);
+    expect(game.lastPresidentIndex).toBe(0);
+    expect(game.lastChancellorIndex).toBe(1);
+  });
+
+  it('an accepted veto that fills the tracker triggers chaos', () => {
+    // Election tracker resets on a successful election, so fill it after the vote
+    let game = proposeVeto(chancellorHolding());
+    game = respondToVeto({ ...game, failedElections: 2, drawPile: deck('L', 'F', 'F', 'F') }, true);
+    expect(game.liberalPolicies).toBe(1);
+    expect(game.failedElections).toBe(0);
+    expect(game.lastPresidentIndex).toBeNull();
+    expect(game.lastChancellorIndex).toBeNull();
+  });
+
+  it('a refused veto returns the cards and the chancellor must enact', () => {
+    const before = chancellorHolding();
+    const game = respondToVeto(proposeVeto(before), false);
+    expect(game.phase).toBe('legislation_chancellor');
+    expect(game.drawnCards).toEqual(before.drawnCards);
+    expect(chancellorEnact(game, 0).liberalPolicies).toBe(1);
+  });
+
+  it('after a refusal, the chancellor cannot propose a veto again this session', () => {
+    const game = respondToVeto(proposeVeto(chancellorHolding()), false);
+    expect(() => proposeVeto(game)).toThrow(/already refused/);
+  });
+
+  it('the next government can veto again after an earlier refusal', () => {
+    let game = respondToVeto(proposeVeto(chancellorHolding()), false);
+    game = finishPolicyEnacted(chancellorEnact(game, 0));
+    game = presidentDiscard(drawCards(voteAll(nominate(game, 3), 'ja')), 0);
+    expect(proposeVeto(game).phase).toBe('veto_proposed');
+  });
+
+  it('cannot respond to a veto that was not proposed', () => {
+    expect(() => respondToVeto(chancellorHolding(), true)).toThrow(/No veto/);
   });
 });

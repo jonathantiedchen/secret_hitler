@@ -265,6 +265,23 @@ export function useGameSocket(gameId: string | null) {
       });
     });
 
+    // Veto
+    socket.on('veto_proposed', ({ chancellorName }) => {
+      addChatMessage({
+        type: 'action',
+        content: `${chancellorName} proposed a veto`,
+      });
+    });
+
+    socket.on('veto_response', ({ presidentName, accept }) => {
+      addChatMessage({
+        type: 'action',
+        content: accept
+          ? `${presidentName} agreed to the veto: both policies discarded`
+          : `${presidentName} refused the veto`,
+      });
+    });
+
     // Special election
     socket.on('special_election', ({ target }) => {
       addChatMessage({

@@ -77,6 +77,8 @@ export function GamePage() {
         return chancellorIndex !== null
           ? `${players[chancellorIndex].name} is choosing a policy`
           : 'Chancellor is choosing a policy';
+      case 'veto_proposed':
+        return `${players[presidentIndex].name} is deciding on the Chancellor's veto`;
       case 'policy_enacted':
         return 'A policy has been enacted';
       case 'executive_action':

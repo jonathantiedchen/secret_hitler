@@ -77,6 +77,7 @@ export function createGame(
     liberalPolicies: 0,
     fascistPolicies: 0,
     failedElections: 0,
+    vetoRefused: false,
     votes: new Map(),
     drawnCards: [],
     winner: null,
@@ -301,15 +302,63 @@ export function chancellorEnact(game: GameState, enactIndex: number): GameState 
   return enactPolicy(newGame, enactedPolicy);
 }
 
+// End of legislative session: reshuffle if fewer than 3 cards remain,
+// so a policy peek sees the cards the next president will actually draw
+function reshuffleIfLow(game: GameState): GameState {
+  if (game.drawPile.length >= 3) return game;
+  return { ...game, drawPile: shuffle([...game.drawPile, ...game.discardPile]), discardPile: [] };
+}
+
+// Veto unlocks with the 5th fascist policy
+export function isVetoUnlocked(game: GameState): boolean {
+  return game.fascistPolicies >= 5;
+}
+
+// Chancellor proposes to veto the agenda instead of enacting
+export function proposeVeto(game: GameState): GameState {
+  if (game.phase !== 'legislation_chancellor' || game.drawnCards.length !== 2) {
+    throw new Error('Veto can only be proposed by the Chancellor holding 2 policies');
+  }
+  if (!isVetoUnlocked(game)) {
+    throw new Error('Veto power is not unlocked');
+  }
+  if (game.vetoRefused) {
+    throw new Error('Veto was already refused this session');
+  }
+
+  return { ...game, phase: 'veto_proposed' };
+}
+
+// President accepts or refuses the Chancellor's veto
+export function respondToVeto(game: GameState, accept: boolean): GameState {
+  if (game.phase !== 'veto_proposed') {
+    throw new Error('No veto proposed');
+  }
+
+  if (!accept) {
+    return { ...game, phase: 'legislation_chancellor', vetoRefused: true };
+  }
+
+  // Both policies discarded; counts as a failed government for the election tracker
+  const vetoed = reshuffleIfLow({
+    ...game,
+    drawnCards: [],
+    discardPile: [...game.discardPile, ...game.drawnCards],
+  });
+  const failedElections = game.failedElections + 1;
+
+  if (failedElections >= 3) {
+    return enactChaosPolicy(vetoed);
+  }
+
+  return advancePresident({ ...vetoed, phase: 'nomination', failedElections });
+}
+
 // Enact a policy and check win conditions
 function enactPolicy(game: GameState, policy: PolicyCard, grantsPower = true): GameState {
   let newGame: GameState;
 
-  // End of legislative session: reshuffle if fewer than 3 cards remain,
-  // so a policy peek sees the cards the next president will actually draw
-  if (game.drawPile.length < 3) {
-    game = { ...game, drawPile: shuffle([...game.drawPile, ...game.discardPile]), discardPile: [] };
-  }
+  game = reshuffleIfLow(game);
 
   if (policy === 'liberal') {
     newGame = {
@@ -448,6 +497,7 @@ function advancePresident(game: GameState): GameState {
     ...game,
     presidentIndex: nextPresident,
     specialElectionReturnIndex: null,
+    vetoRefused: false,
     nomineeIndex: null,
     chancellorIndex: null,
     round: game.round + 1,

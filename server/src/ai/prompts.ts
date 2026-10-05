@@ -146,19 +146,43 @@ After the policy is enacted, you may discuss what happened (and you can lie abou
 
 export function getChancellorLegislationPrompt(game: GameState, cards: string[]): string {
   const president = game.players[game.presidentIndex];
+  const canVeto = game.fascistPolicies >= 5 && !game.vetoRefused;
+
+  const vetoNote = game.vetoRefused
+    ? `\n${president.name} REFUSED your veto. You must now enact one of the two policies.\n`
+    : canVeto
+      ? `\nVETO OPTION: Veto power is unlocked. Instead of enacting, you may propose to veto this agenda. If ${president.name} agrees, both policies are discarded and the election tracker advances by 1. If they refuse, you must enact one. A veto proposal is announced publicly.\n`
+      : '';
 
   return `
 PHASE: LEGISLATION (Chancellor)
 ${president.name} passed you 2 policy cards: ${cards.map((c, i) => `[${i}] ${c.toUpperCase()}`).join(', ')}
 
 You must enact ONE policy.
-
-IMPORTANT: Legislation is done in SILENCE. You cannot speak or communicate during this phase. Do NOT include dialogue in your response.
+${vetoNote}
+IMPORTANT: Legislation is done in SILENCE. You cannot speak or communicate during this phase. Do NOT include dialogue in your response${canVeto ? ', unless you propose a veto: then your dialogue is your public request to the President' : ''}.
 
 Your action should be:
-{ "type": "enact", "index": 0|1 }
+{ "type": "enact", "index": 0|1 }${canVeto ? '\nor, to propose a veto:\n{ "type": "veto" }' : ''}
 
 After the policy is enacted, you may discuss what happened (and you can claim the President gave you different cards).`;
+}
+
+export function getVetoResponsePrompt(game: GameState): string {
+  const chancellor = game.players[game.chancellorIndex!];
+
+  return `
+PHASE: VETO RESPONSE
+Chancellor ${chancellor.name} has publicly proposed to veto this agenda.
+You know which 2 policies you passed them; everyone else does not.
+
+If you AGREE: both policies are discarded, no policy is enacted, and the election tracker advances by 1 (currently ${game.failedElections}/3; at 3 the top policy is enacted automatically).
+If you REFUSE: ${chancellor.name} must enact one of the two policies.
+
+Your answer is public. Your dialogue is what you say to the table.
+
+Your action should be:
+{ "type": "veto_response", "accept": true } or { "type": "veto_response", "accept": false }`;
 }
 
 export function getExecutionPrompt(game: GameState): string {

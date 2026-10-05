@@ -30,6 +30,7 @@ export function DebugPanel({ entries, selectedIndex, onClearSelection }: DebugPa
     voting: 'Voting',
     legislation_president: 'President Legislation',
     legislation_chancellor: 'Chancellor Legislation',
+    veto_proposed: 'Veto Response',
     executive_action: 'Executive Action',
   };
 

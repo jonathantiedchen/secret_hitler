@@ -210,6 +210,13 @@ export class MockLLMClient {
     }
 
     if (context.includes('PHASE: LEGISLATION (Chancellor)')) {
+      if (context.includes('VETO OPTION') && Math.random() < 0.3) {
+        return JSON.stringify({
+          thought: 'I don\'t like either of these. Let\'s try a veto.',
+          action: { type: 'veto' },
+          dialogue: 'I wish to veto this agenda.',
+        });
+      }
       const index = Math.floor(Math.random() * 2);
       const thoughts = [
         'I need to make the right choice here...',
@@ -225,6 +232,15 @@ export class MockLLMClient {
         thought: thoughts[Math.floor(Math.random() * thoughts.length)],
         action: { type: 'enact', index },
         dialogue: dialogues[Math.floor(Math.random() * dialogues.length)],
+      });
+    }
+
+    if (context.includes('PHASE: VETO RESPONSE')) {
+      const accept = Math.random() < 0.5;
+      return JSON.stringify({
+        thought: accept ? 'Fine, let\'s scrap this agenda.' : 'No, you will enact one of them.',
+        action: { type: 'veto_response', accept },
+        dialogue: accept ? 'I agree to the veto.' : 'I refuse the veto.',
       });
     }
 
