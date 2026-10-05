@@ -41,6 +41,8 @@ export interface GameState {
   nomineeIndex: number | null;
   lastPresidentIndex: number | null;
   lastChancellorIndex: number | null;
+  // Set by a special election: the president who called it. Rotation resumes to their left.
+  specialElectionReturnIndex: number | null;
 
   // Policy deck
   drawPile: PolicyCard[];

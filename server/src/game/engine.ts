@@ -71,6 +71,7 @@ export function createGame(
     nomineeIndex: null,
     lastPresidentIndex: null,
     lastChancellorIndex: null,
+    specialElectionReturnIndex: null,
     drawPile: createPolicyDeck(),
     discardPile: [],
     liberalPolicies: 0,
@@ -236,7 +237,8 @@ function enactChaosPolicy(game: GameState): GameState {
     lastChancellorIndex: null,
   };
 
-  return enactPolicy(newGame, policy);
+  // A policy enacted by chaos grants no presidential power
+  return enactPolicy(newGame, policy, false);
 }
 
 // President draws 3 cards
@@ -300,8 +302,14 @@ export function chancellorEnact(game: GameState, enactIndex: number): GameState 
 }
 
 // Enact a policy and check win conditions
-function enactPolicy(game: GameState, policy: PolicyCard): GameState {
+function enactPolicy(game: GameState, policy: PolicyCard, grantsPower = true): GameState {
   let newGame: GameState;
+
+  // End of legislative session: reshuffle if fewer than 3 cards remain,
+  // so a policy peek sees the cards the next president will actually draw
+  if (game.drawPile.length < 3) {
+    game = { ...game, drawPile: shuffle([...game.drawPile, ...game.discardPile]), discardPile: [] };
+  }
 
   if (policy === 'liberal') {
     newGame = {
@@ -338,7 +346,7 @@ function enactPolicy(game: GameState, policy: PolicyCard): GameState {
 
     // Check for executive action
     const action = getExecutiveAction(game.players.length, newGame.fascistPolicies);
-    if (action) {
+    if (action && grantsPower) {
       newGame.phase = 'executive_action';
       // Store action type for handling
     }
@@ -350,7 +358,7 @@ function enactPolicy(game: GameState, policy: PolicyCard): GameState {
 // Execute a player
 export function executePlayer(game: GameState, targetIndex: number): GameState {
   const target = game.players[targetIndex];
-  if (!target || !target.isAlive) {
+  if (!target || !target.isAlive || targetIndex === game.presidentIndex) {
     throw new Error('Invalid execution target');
   }
 
@@ -383,7 +391,7 @@ export function investigatePlayer(game: GameState, targetIndex: number): {
   party: 'liberal' | 'fascist';
 } {
   const target = game.players[targetIndex];
-  if (!target || !target.isAlive || target.wasInvestigated) {
+  if (!target || !target.isAlive || target.wasInvestigated || targetIndex === game.presidentIndex) {
     throw new Error('Invalid investigation target');
   }
 
@@ -408,29 +416,28 @@ export function specialElection(game: GameState, nextPresidentIndex: number): Ga
   if (nextPresidentIndex === game.presidentIndex) {
     throw new Error('Cannot special elect yourself');
   }
+  if (!game.players[nextPresidentIndex]?.isAlive) {
+    throw new Error('Invalid special election target');
+  }
 
   return {
     ...game,
     presidentIndex: nextPresidentIndex,
+    specialElectionReturnIndex: game.presidentIndex,
     phase: 'nomination',
-    // Note: after special election, normal order resumes from original position
   };
 }
 
 // Peek at top 3 cards
 export function peekCards(game: GameState): PolicyCard[] {
-  let { drawPile, discardPile } = game;
-
-  if (drawPile.length < 3) {
-    drawPile = shuffle([...drawPile, ...discardPile]);
-  }
-
-  return drawPile.slice(0, 3);
+  // The deck always holds at least 3 cards after a legislative session (see enactPolicy)
+  return game.drawPile.slice(0, 3);
 }
 
 // Advance to next president in order
 function advancePresident(game: GameState): GameState {
-  let nextPresident = game.presidentIndex;
+  // After a special election, rotation resumes from the president who called it
+  let nextPresident = game.specialElectionReturnIndex ?? game.presidentIndex;
   const playerCount = game.players.length;
 
   do {
@@ -440,6 +447,7 @@ function advancePresident(game: GameState): GameState {
   return {
     ...game,
     presidentIndex: nextPresident,
+    specialElectionReturnIndex: null,
     nomineeIndex: null,
     chancellorIndex: null,
     round: game.round + 1,
