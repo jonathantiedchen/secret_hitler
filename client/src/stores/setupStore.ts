@@ -90,7 +90,7 @@ const defaultSettings: GameSettings = {
   showVoteHistory: true,
   maxRetries: 3,
   temperature: 0.7,
-  maxTokens: 500,
+  maxTokens: 1500,
   costLimit: 1.0, // Default $1 limit
 };
 

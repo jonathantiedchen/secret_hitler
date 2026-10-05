@@ -9,6 +9,11 @@ export const GAME_LOG_VERSION = '1';
 
 export type GameLogStatus = 'in_progress' | 'completed' | 'aborted';
 
+// Why a game stopped early: a player who gave no usable decision, or another error
+export type AbortReason =
+  | { playerId: string; model: string; phase: string; reasons: string[] }
+  | { message: string };
+
 // One LLM request. Only the messages added to the player's conversation since
 // their previous call are stored; with the system prompt and the history cap
 // (config.maxHistoryMessages) the full prompt can be reconstructed.
@@ -24,7 +29,11 @@ export interface LLMCallRecord {
   usage: LLMResponse['usage'] | null;
   cost: number;
   latencyMs: number;
+  finishReason?: string;
+  // The request failed (network, API)
   error?: string;
+  // The reply arrived but could not be used; the model was asked again
+  rejected?: string;
 }
 
 export interface GameLogInput {
@@ -37,17 +46,20 @@ export interface GameLogInput {
     maxTokens: number;
     costLimit: number;
     maxHistoryMessages: number;
+    retryBaseDelayMs: number;
   };
   history: GameHistory;
   totalCost: number;
   playerMessages: Map<string, ChatMessage[]>;
   llmCalls: LLMCallRecord[];
+  abortReason: AbortReason | null;
 }
 
 export interface GameLog {
   logVersion: string;
   gameId: string;
   status: GameLogStatus;
+  abortReason: AbortReason | null;
   promptVersion: string;
   startedAt: string;
   endedAt: string | null;
@@ -80,6 +92,7 @@ export function buildGameLog(game: GameLogInput, status: GameLogStatus): GameLog
     logVersion: GAME_LOG_VERSION,
     gameId: history.gameId,
     status,
+    abortReason: game.abortReason,
     promptVersion: history.promptVersion,
     startedAt: new Date(history.startTime).toISOString(),
     endedAt: history.endTime ? new Date(history.endTime).toISOString() : null,

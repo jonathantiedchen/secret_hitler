@@ -5,7 +5,7 @@ import { getExecutiveAction } from '../../game/types.js';
 import { getExecutionPrompt, getInvestigationPrompt, getSpecialElectionPrompt, getInvestigationClaimPrompt, getPeekClaimPrompt } from '../../ai/prompts.js';
 import type { GameRecord } from '../gameRecord.js';
 import { createEvent } from '../state.js';
-import { askForDecision, recordDialogue, publishEvent, tellPrivately, pickRandom, type LLMClient, type Emit, type TrackCost } from '../conversation.js';
+import { askForDecision, recordDialogue, publishEvent, tellPrivately, playerIndexByName, type LLMClient, type Emit, type TrackCost } from '../conversation.js';
 import { askClaim } from './claims.js';
 
 export async function handleExecutiveAction(
@@ -55,33 +55,27 @@ export async function handleExecutiveAction(
       return;
   }
 
-  const parsed = await askForDecision(game, llmClient, emit, trackCost, president, prompt, 'executive_action', { action });
-  if (parsed?.dialogue) recordDialogue(game, emit, president, parsed.dialogue);
-
-  // Powers are mandatory: an unknown or illegal target falls back to a random legal one
+  // Powers are mandatory, so the President must name a legal target
   const validTargets = getValidTargets(game.state, action);
-  const targetName = parsed?.action?.target;
-  const chosen = typeof targetName === 'string'
-    ? game.state.players.findIndex((p) => p.name.toLowerCase() === targetName.toLowerCase())
-    : -1;
-  const fallback = !validTargets.includes(chosen);
-  const targetIndex = fallback ? pickRandom(validTargets) : chosen;
+  const names = validTargets.map((i) => game.state.players[i].name).join(', ');
+  const { response, value: targetIndex } = await askForDecision(game, llmClient, emit, trackCost, president, prompt, 'executive_action', (r) => {
+    const index = playerIndexByName(game, r.action?.target);
+    return validTargets.includes(index)
+      ? { ok: true, value: index }
+      : { ok: false, error: `"${String(r.action?.target)}" is not a valid target. Valid targets: ${names}.` };
+  }, { action });
+  if (response.dialogue) recordDialogue(game, emit, president, response.dialogue);
+
   const target = game.state.players[targetIndex];
-  const flag = fallback ? { fallback: true } : {};
-  const tellFallback = (did: string) => {
-    if (fallback) tellPrivately(game, president.id, `Your response could not be used, so a random valid target was chosen for you: you ${did}.`);
-  };
 
   switch (action) {
     case 'execution':
       game.state = executePlayer(game.state, targetIndex);
-      tellFallback(`executed ${target.name}`);
       createEvent(game, 'execution', {
         presidentId: president.id,
         targetId: target.id,
         targetName: target.name,
         targetRole: target.role,
-        ...flag,
       });
       publishEvent(game, `President ${president.name} executed ${target.name}.`);
       emit('execution', { target: target.name });
@@ -90,13 +84,11 @@ export async function handleExecutiveAction(
     case 'investigate': {
       const result = investigatePlayer(game.state, targetIndex);
       game.state = result.game;
-      tellFallback(`investigated ${target.name}`);
       createEvent(game, 'investigation', {
         presidentId: president.id,
         targetId: target.id,
         targetName: target.name,
         revealedParty: result.party,
-        ...flag,
       });
       publishEvent(game, `President ${president.name} investigated ${target.name}'s party membership.`);
       tellPrivately(game, president.id, `Investigation result: ${target.name} is a ${result.party.toUpperCase()}.`);
@@ -114,12 +106,10 @@ export async function handleExecutiveAction(
 
     case 'special_election':
       game.state = specialElection(game.state, targetIndex);
-      tellFallback(`chose ${target.name} as the next President`);
       createEvent(game, 'special_election', {
         presidentId: president.id,
         targetId: target.id,
         targetName: target.name,
-        ...flag,
       });
       publishEvent(game, `President ${president.name} called a special election: ${target.name} is the next President.`);
       emit('special_election', { target: target.name });

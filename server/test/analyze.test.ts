@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractClaims, selectLogs, summarize, wilson, gameResults } from '../src/analysis/analyze.js';
+import { extractClaims, selectLogs, summarize, wilson, gameResults, dataQuality } from '../src/analysis/analyze.js';
 import type { GameLog } from '../src/logging/gameLog.js';
 
 let nextId = 0;
@@ -16,6 +16,7 @@ function log(overrides: Partial<GameLog> = {}): GameLog {
     promptVersion: '4',
     startedAt: '2026-10-05T00:00:00.000Z',
     endedAt: '2026-10-05T00:10:00.000Z',
+    abortReason: null,
     config: { playerCount: 5, temperature: 0.7, maxTokens: 500, maxHistoryMessages: 40, costLimit: 1, mockMode: false },
     players: [
       { index: 0, id: 'p0', name: 'A', model: 'model-x', role: 'hitler', party: 'fascist', isAlive: true },
@@ -68,7 +69,7 @@ describe('selectLogs', () => {
     const logs = [log(), log({ gameId: 'g2', status: 'aborted' }), log({ gameId: 'g3', config: { ...log().config, mockMode: true } })];
     const { selected, excluded } = selectLogs(logs, {});
     expect(selected.map((l) => l.gameId)).toEqual(['g1']);
-    expect(excluded).toEqual({ notCompleted: 1, mock: 1, otherPromptVersion: 0 });
+    expect(excluded).toEqual({ aborted: 1, inProgress: 0, mock: 1, otherPromptVersion: 0 });
   });
 
   it('can include mock games', () => {
@@ -125,5 +126,26 @@ describe('gameResults', () => {
     const results = gameResults([log()]);
     expect(results.find((r) => r.model === 'model-x' && r.party === 'fascist')).toMatchObject({ seats: 2, wins: 2 });
     expect(results.find((r) => r.model === 'model-y' && r.party === 'liberal')).toMatchObject({ seats: 3, wins: 0 });
+  });
+});
+
+describe('dataQuality', () => {
+  const call = (playerId: string, extra: object = {}) => ({
+    playerId, round: 1, phase: 'voting' as const, timestamp: 0, newMessages: [], promptMessageCount: 2,
+    response: '{}', model: 'fake', usage: null, cost: 0, latencyMs: 1, ...extra,
+  });
+
+  it('counts requests, rejected replies and failed requests per model', () => {
+    const logs = [log({ llmCalls: [call('p0'), call('p0', { rejected: 'bad' }), call('p2'), call('p3', { error: '503', response: null })] })];
+    const q = dataQuality(logs);
+    expect(q.find((r) => r.model === 'model-x')).toMatchObject({ requests: 2, rejected: 1, requestErrors: 0, rejectionRate: 0.5 });
+    expect(q.find((r) => r.model === 'model-y')).toMatchObject({ requests: 2, rejected: 0, requestErrors: 1, rejectionRate: 0 });
+  });
+
+  it('counts games each model aborted', () => {
+    const aborted = log({ status: 'aborted', abortReason: { playerId: 'p3', model: 'model-y', phase: 'voting', reasons: ['x'] } });
+    const q = dataQuality([log(), aborted]);
+    expect(q.find((r) => r.model === 'model-y')).toMatchObject({ gamesAborted: 1 });
+    expect(q.find((r) => r.model === 'model-x')).toMatchObject({ gamesAborted: 0 });
   });
 });

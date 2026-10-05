@@ -10,7 +10,8 @@ function input(overrides: Partial<GameLogInput> = {}): GameLogInput {
   return {
     state,
     apiKey: 'sk-or-secret-key',
-    settings: { actionDelay: 0, showThoughts: true, temperature: 0.7, maxTokens: 800, costLimit: 1, maxHistoryMessages: 40 },
+    settings: { actionDelay: 0, showThoughts: true, temperature: 0.7, maxTokens: 800, costLimit: 1, maxHistoryMessages: 40, retryBaseDelayMs: 1000 },
+    abortReason: null,
     history: {
       gameId: 'game-1',
       promptVersion: '2',
@@ -62,6 +63,13 @@ describe('buildGameLog', () => {
     expect(log.llmCalls[0]).toMatchObject({ playerId: 'p0', response: '{"thought":"t"}', latencyMs: 300 });
     expect(log.systemPrompts.p3).toBe('system prompt for P3');
     expect(log.totalCost).toBe(0.12);
+  });
+
+  it('records why an aborted game stopped', () => {
+    const abortReason = { playerId: 'p2', model: 'mock', phase: 'voting', reasons: ['"vote" must be "ja" or "nein".'] };
+    const log = buildGameLog(input({ abortReason }), 'aborted');
+    expect(log.abortReason).toEqual(abortReason);
+    expect(buildGameLog(input(), 'completed').abortReason).toBeNull();
   });
 
   it('records status and result', () => {

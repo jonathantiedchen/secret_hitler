@@ -5,16 +5,15 @@ import type { PolicyCard } from '../../game/types.js';
 import { getPresidentLegislationPrompt, getChancellorLegislationPrompt, getVetoResponsePrompt } from '../../ai/prompts.js';
 import type { GameRecord } from '../gameRecord.js';
 import { createEvent, createSnapshot } from '../state.js';
-import { askForDecision, recordDialogue, publishEvent, tellPrivately, formatTracks, type LLMClient, type Emit, type TrackCost } from '../conversation.js';
+import { askForDecision, recordDialogue, publishEvent, formatTracks, type LLMClient, type Emit, type TrackCost, type Validation } from '../conversation.js';
 
-// The card index a player chose, or null if it isn't a valid index (the caller falls back to card 0)
+// The card index a player chose, or null if it isn't a valid index
 function cardIndex(raw: unknown, cardCount: number): number | null {
   const index = typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : raw;
   return typeof index === 'number' && Number.isInteger(index) && index >= 0 && index < cardCount ? index : null;
 }
 
 const summarize = (cards: PolicyCard[]) => cards.map((c) => (c === 'liberal' ? 'L' : 'F')).join('');
-const upper = (cards: PolicyCard[]) => cards.map((c) => c.toUpperCase()).join(', ');
 
 export async function handlePresidentLegislation(
   game: GameRecord,
@@ -44,26 +43,21 @@ export async function handlePresidentLegislation(
   });
   emit('history_nav', { currentIndex: null, totalSnapshots: game.snapshots.length, isLive: true });
 
-  const parsed = await askForDecision(game, llmClient, emit, trackCost, president,
-    getPresidentLegislationPrompt(game.state, cards), 'legislation_president');
+  const { value: discardIndex } = await askForDecision(game, llmClient, emit, trackCost, president,
+    getPresidentLegislationPrompt(game.state, cards), 'legislation_president', (r) => {
+      const index = cardIndex(r.action?.index, 3);
+      return index !== null ? { ok: true, value: index } : { ok: false, error: '"index" must be 0, 1 or 2 (the card to discard).' };
+    });
   // NOTE: No dialogue during legislation - it's done in silence per rules
 
-  const chosen = cardIndex(parsed?.action?.index, 3);
-  const discardIndex = chosen ?? 0;
-  const fallback = chosen === null;
   const discardedCard = cards[discardIndex];
   const passedCards = cards.filter((_, i) => i !== discardIndex);
-
   game.state = presidentDiscard(game.state, discardIndex);
-  if (fallback) {
-    tellPrivately(game, president.id, `Your response could not be used, so the first card was discarded for you: you drew ${upper(cards)} and discarded ${discardedCard.toUpperCase()}.`);
-  }
   createEvent(game, 'president_discard', {
     playerId: president.id,
     discardIndex,
     discardedCard,
     passedCards,
-    ...(fallback && { fallback: true }),
   });
   emit('president_discard', {
     discardIndex,
@@ -73,7 +67,7 @@ export async function handlePresidentLegislation(
     chancellorName: chancellor.name,
   });
 
-  createSnapshot(game, `Round ${game.state.round}: President discarded ${summarize([discardedCard])}, passed ${summarize(passedCards)}${fallback ? ' (fallback)' : ''}`, {
+  createSnapshot(game, `Round ${game.state.round}: President discarded ${summarize([discardedCard])}, passed ${summarize(passedCards)}`, {
     legislation: { presidentCards: cards, discardedCard, chancellorCards: passedCards },
   });
   emit('history_nav', { currentIndex: null, totalSnapshots: game.snapshots.length, isLive: true });
@@ -102,13 +96,22 @@ export async function handleChancellorLegislation(
     emit('history_nav', { currentIndex: null, totalSnapshots: game.snapshots.length, isLive: true });
   }
 
-  const parsed = await askForDecision(game, llmClient, emit, trackCost, chancellor,
-    getChancellorLegislationPrompt(game.state, cards), 'legislation_chancellor');
+  const canVeto = isVetoUnlocked(game.state) && !game.state.vetoRefused;
+  const { response, value: choice } = await askForDecision(game, llmClient, emit, trackCost, chancellor,
+    getChancellorLegislationPrompt(game.state, cards), 'legislation_chancellor', (r): Validation<'veto' | number> => {
+      if (r.action?.type === 'veto') {
+        return canVeto
+          ? { ok: true, value: 'veto' }
+          : { ok: false, error: game.state.vetoRefused ? 'the President already refused a veto; you must enact a policy.' : 'veto power is not unlocked yet (it needs 5 Fascist policies).' };
+      }
+      const index = cardIndex(r.action?.index, 2);
+      return index !== null ? { ok: true, value: index } : { ok: false, error: '"index" must be 0 or 1 (the card to enact).' };
+    });
 
   // Veto proposal: public request to the President instead of enacting
-  if (parsed?.action?.type === 'veto' && isVetoUnlocked(game.state) && !game.state.vetoRefused) {
+  if (choice === 'veto') {
     game.state = proposeVeto(game.state);
-    const request = parsed.dialogue || 'I wish to veto this agenda.';
+    const request = response.dialogue || 'I wish to veto this agenda.';
     createEvent(game, 'veto_proposed', { playerId: chancellor.id, playerName: chancellor.name, cards });
     createEvent(game, 'dialogue', { playerId: chancellor.id, playerName: chancellor.name, content: request });
     publishEvent(game, `Chancellor ${chancellor.name} proposed to veto this agenda.`);
@@ -120,23 +123,16 @@ export async function handleChancellorLegislation(
 
   // NOTE: No dialogue during legislation - it's done in silence per rules
 
-  const chosen = cardIndex(parsed?.action?.index, 2);
-  const enactIndex = chosen ?? 0;
-  const fallback = chosen === null;
+  const enactIndex = choice;
   const policy = cards[enactIndex];
   const discardedCard = cards[1 - enactIndex];
-
   game.state = chancellorEnact(game.state, enactIndex);
-  if (fallback) {
-    tellPrivately(game, chancellor.id, `Your response could not be used, so the first card was enacted for you: you received ${upper(cards)} and enacted ${policy.toUpperCase()}.`);
-  }
   publishEvent(game, `Chancellor ${chancellor.name} enacted a ${policy.toUpperCase()} policy. ${formatTracks(game.state)}`);
   createEvent(game, 'chancellor_enact', {
     playerId: chancellor.id,
     enactIndex,
     enactedPolicy: policy,
     discardedCard,
-    ...(fallback && { fallback: true }),
   });
   createEvent(game, 'policy_enacted', {
     policy,
@@ -159,12 +155,12 @@ export async function handleVetoResponse(
   const president = game.state.players[game.state.presidentIndex];
   const cards = game.state.drawnCards;
 
-  const parsed = await askForDecision(game, llmClient, emit, trackCost, president,
-    getVetoResponsePrompt(game.state), 'veto_proposed');
-
-  // Default to refusing: the agenda stands unless the President clearly agrees
-  const accept = parsed?.action?.accept === true;
-  if (parsed?.dialogue) recordDialogue(game, emit, president, parsed.dialogue);
+  const { response, value: accept } = await askForDecision(game, llmClient, emit, trackCost, president,
+    getVetoResponsePrompt(game.state), 'veto_proposed', (r) =>
+      typeof r.action?.accept === 'boolean'
+        ? { ok: true, value: r.action.accept }
+        : { ok: false, error: '"accept" must be true or false.' });
+  if (response.dialogue) recordDialogue(game, emit, president, response.dialogue);
 
   const before = game.state;
   game.state = respondToVeto(game.state, accept);

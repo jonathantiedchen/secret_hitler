@@ -5,12 +5,11 @@ import { getLegislationClaimPrompt } from '../../ai/prompts.js';
 import { evaluateClaim } from '../../game/claims.js';
 import type { GameRecord } from '../gameRecord.js';
 import { createEvent } from '../state.js';
-import { askForDecision, recordDialogue, publishEvent, type LLMClient, type Emit, type TrackCost } from '../conversation.js';
+import { askForDecision, recordDialogue, publishEvent, type LLMClient, type Emit, type TrackCost, type Validation } from '../conversation.js';
 
 export type ClaimType = 'president_legislation' | 'chancellor_legislation' | 'investigation' | 'peek';
 
 // Ask a player to publicly claim what they privately saw, and log the claim next to the truth.
-// Never throws: a failed or malformed claim is recorded as no claim.
 export async function askClaim(
   game: GameRecord,
   llmClient: LLMClient,
@@ -26,23 +25,21 @@ export async function askClaim(
     announce: (claimed: string[]) => string;
   }
 ) {
-  const parsed = await askForDecision(game, llmClient, emit, trackCost, player, claim.prompt, `claim_${claim.claimType}`);
-
-  let claimed: string[] | null = null;
-  let malformed = parsed === null;
-  const raw = parsed?.action?.[claim.field];
-  const valid = (x: unknown): x is string => typeof x === 'string' && ['LIBERAL', 'FASCIST'].includes(x.toUpperCase());
-  if (raw === null || raw === undefined) {
-    claimed = null;
-  } else if (claim.field === 'party' && valid(raw)) {
-    claimed = [raw.toUpperCase()];
-  } else if (claim.field === 'cards' && Array.isArray(raw) && raw.every(valid)) {
-    claimed = raw.map((c: string) => c.toUpperCase());
-  } else {
-    malformed = true;
-  }
-
-  if (parsed?.dialogue) recordDialogue(game, emit, player, parsed.dialogue);
+  // A claim names cards / a party, or null to decline
+  const count = claim.actual.length;
+  const isCard = (x: unknown): x is string => typeof x === 'string' && ['LIBERAL', 'FASCIST'].includes(x.toUpperCase());
+  const { response, value: claimed } = await askForDecision(game, llmClient, emit, trackCost, player, claim.prompt, `claim_${claim.claimType}`,
+    (r): Validation<string[] | null> => {
+      const raw = r.action?.[claim.field];
+      if (raw === null || raw === undefined) return { ok: true, value: null };
+      if (claim.field === 'party') {
+        return isCard(raw) ? { ok: true, value: [raw.toUpperCase()] } : { ok: false, error: '"party" must be "LIBERAL", "FASCIST" or null.' };
+      }
+      return Array.isArray(raw) && raw.length === count && raw.every(isCard)
+        ? { ok: true, value: raw.map((c) => c.toUpperCase()) }
+        : { ok: false, error: `"cards" must be null or a list of exactly ${count} cards, each "LIBERAL" or "FASCIST".` };
+    });
+  if (response.dialogue) recordDialogue(game, emit, player, response.dialogue);
 
   const announcement = claimed
     ? `${player.name} claims ${claim.announce(claimed)}.`
@@ -57,7 +54,6 @@ export async function askClaim(
     actual: claim.actual.map((c) => c.toUpperCase()),
     claimed,
     truthful: evaluateClaim(claim.actual, claimed),
-    malformed,
   });
 }
 

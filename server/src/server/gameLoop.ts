@@ -7,6 +7,7 @@ import { OpenRouterClient, MockLLMClient } from '../ai/openrouter.js';
 import { buildGameLog, writeGameLog, type GameLogStatus } from '../logging/gameLog.js';
 import { games, type GameRecord } from './gameRecord.js';
 import { createEvent, createSnapshot, sanitizeGameState } from './state.js';
+import { DecisionFailedError } from './conversation.js';
 import { handleNomination } from './phases/nomination.js';
 import { handleVoting } from './phases/voting.js';
 import { handlePresidentLegislation, handleChancellorLegislation, handleVetoResponse } from './phases/legislation.js';
@@ -162,6 +163,7 @@ export async function runGameLoop(gameId: string, io: Server) {
       fascistPolicies: game.state.fascistPolicies,
     });
 
+    if (game.state.phase !== 'game_over') game.abortReason = { message: 'Game was stopped before it ended' };
     const logPath = saveGameLog(game, game.state.phase === 'game_over' ? 'completed' : 'aborted');
     if (logPath) console.log(`📝 Game log written to ${logPath}`);
 
@@ -171,10 +173,18 @@ export async function runGameLoop(gameId: string, io: Server) {
       winCondition: game.state.winCondition,
     });
   } catch (error) {
-    console.error('Game loop error:', error);
+    // No move is ever made up for a player: if they can't decide, the game ends here
+    console.error('Game aborted:', error);
     game.history.endTime = Date.now();
+    if (error instanceof DecisionFailedError) {
+      const player = game.state.players.find((p) => p.id === error.playerId)!;
+      game.abortReason = { playerId: player.id, model: player.model, phase: error.phase, reasons: error.reasons };
+      emit('error', { message: `Game aborted: ${player.name} (${player.model}) gave no usable response in ${error.phase} after several attempts. Last problem: ${error.reasons.at(-1)}` });
+    } else {
+      game.abortReason = { message: error instanceof Error ? error.message : String(error) };
+      emit('error', { message: 'Game aborted after an unexpected error' });
+    }
     saveGameLog(game, 'aborted');
-    emit('error', { message: 'Game error occurred' });
     game.isRunning = false;
   }
 }

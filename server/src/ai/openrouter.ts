@@ -14,6 +14,8 @@ export interface LLMResponse {
     totalTokens: number;
   };
   cost: number;
+  // 'length' means the reply was cut off at the token limit
+  finishReason?: string;
 }
 
 export class OpenRouterClient {
@@ -50,7 +52,9 @@ export class OpenRouterClient {
           model,
           messages,
           temperature: options.temperature ?? 0.7,
-          max_tokens: options.maxTokens ?? 500,
+          max_tokens: options.maxTokens ?? 1500,
+          // Ask for a JSON object; providers that don't support it ignore the parameter
+          response_format: { type: 'json_object' },
         }),
         signal: controller.signal,
       });
@@ -84,6 +88,7 @@ export class OpenRouterClient {
           totalTokens: data.usage?.total_tokens || 0,
         },
         cost: promptCost + completionCost,
+        finishReason: choice.finish_reason,
       };
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -112,9 +117,9 @@ export class MockLLMClient {
   ): Promise<LLMResponse> {
     await new Promise((resolve) => setTimeout(resolve, this.delay));
 
-    // Generate mock response based on context
+    // Generate mock response based on context; the 'mock-invalid' model never answers usably
     const lastMessage = messages[messages.length - 1]?.content || '';
-    let content = this.generateMockResponse(lastMessage, model);
+    let content = model === 'mock-invalid' ? 'I would rather not answer in JSON.' : this.generateMockResponse(lastMessage, model);
 
     return {
       content,

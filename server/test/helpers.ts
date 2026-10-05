@@ -38,16 +38,24 @@ export function deck(...cards: Array<'L' | 'F'>): PolicyCard[] {
 type Reply = string | Error;
 
 // An LLM client with scripted replies: one fixed reply, or one per player model.
-// `calls` counts the requests made.
-export function fakeClient(reply: Reply | ((model: string) => Reply)): LLMClient & { calls: number } {
+// `calls` counts the requests; `sent` holds the last message of each request.
+export function fakeClient(reply: Reply | ((model: string) => Reply)): LLMClient & { calls: number; sent: string[] } {
   const client = {
     calls: 0,
-    chat: async (model: string) => {
+    sent: [] as string[],
+    chat: async (model: string, messages: Array<{ content: string }>) => {
       client.calls++;
+      client.sent.push(messages[messages.length - 1].content);
       const r = typeof reply === 'function' ? reply(model) : reply;
       if (r instanceof Error) throw r;
-      return { content: r, model: 'fake', usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, cost: 0 };
+      return { content: r, model: 'fake', usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, cost: 0, finishReason: 'stop' };
     },
   };
-  return client as unknown as LLMClient & { calls: number };
+  return client as unknown as LLMClient & { calls: number; sent: string[] };
+}
+
+// Replies used in order, one per request (the last one repeats)
+export function inOrder(...replies: Reply[]): () => Reply {
+  let i = 0;
+  return () => replies[Math.min(i++, replies.length - 1)];
 }

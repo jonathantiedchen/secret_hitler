@@ -4,7 +4,7 @@ import { nominate, getValidChancellorCandidates } from '../../game/engine.js';
 import { getNominationPrompt } from '../../ai/prompts.js';
 import type { GameRecord } from '../gameRecord.js';
 import { createEvent } from '../state.js';
-import { askForDecision, recordDialogue, publishEvent, tellPrivately, pickRandom, type LLMClient, type Emit, type TrackCost } from '../conversation.js';
+import { askForDecision, recordDialogue, publishEvent, playerIndexByName, type LLMClient, type Emit, type TrackCost } from '../conversation.js';
 
 export async function handleNomination(
   game: GameRecord,
@@ -15,30 +15,24 @@ export async function handleNomination(
   const president = game.state.players[game.state.presidentIndex];
   const validCandidates = getValidChancellorCandidates(game.state);
 
-  const parsed = await askForDecision(game, llmClient, emit, trackCost, president,
-    getNominationPrompt(game.state, validCandidates), 'nomination');
-  if (parsed?.dialogue) recordDialogue(game, emit, president, parsed.dialogue);
+  const names = validCandidates.map((i) => game.state.players[i].name).join(', ');
+  const { response, value: nomineeIndex } = await askForDecision(game, llmClient, emit, trackCost, president,
+    getNominationPrompt(game.state, validCandidates), 'nomination', (r) => {
+      const index = playerIndexByName(game, r.action?.target);
+      return validCandidates.includes(index)
+        ? { ok: true, value: index }
+        : { ok: false, error: `"${String(r.action?.target)}" cannot be nominated. Valid candidates: ${names}.` };
+    });
+  if (response.dialogue) recordDialogue(game, emit, president, response.dialogue);
 
-  // An unknown or ineligible nominee falls back to a random eligible one
-  const target = parsed?.action?.type === 'nominate' ? parsed.action.target : undefined;
-  const chosen = typeof target === 'string'
-    ? game.state.players.findIndex((p) => p.name.toLowerCase() === target.toLowerCase())
-    : -1;
-  const fallback = !validCandidates.includes(chosen);
-  const nomineeIndex = fallback ? pickRandom(validCandidates) : chosen;
   const nominee = game.state.players[nomineeIndex];
-
   game.state = nominate(game.state, nomineeIndex);
-  if (fallback) {
-    tellPrivately(game, president.id, `Your response could not be used, so a random eligible Chancellor was nominated for you: you nominated ${nominee.name}.`);
-  }
   publishEvent(game, `President ${president.name} nominated ${nominee.name} as Chancellor.`);
   createEvent(game, 'nomination', {
     presidentId: president.id,
     presidentName: president.name,
     nomineeId: nominee.id,
     nomineeName: nominee.name,
-    ...(fallback && { fallback: true }),
   });
   emit('action', {
     type: 'nominate',

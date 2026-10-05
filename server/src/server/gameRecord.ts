@@ -4,7 +4,7 @@ import { createGame } from '../game/engine.js';
 import type { GameState, GameHistory, PolicyCard } from '../game/types.js';
 import type { ChatMessage } from '../ai/openrouter.js';
 import { getSystemPrompt, PROMPT_VERSION } from '../ai/prompts.js';
-import type { LLMCallRecord } from '../logging/gameLog.js';
+import type { LLMCallRecord, AbortReason } from '../logging/gameLog.js';
 
 // State snapshot for step navigation
 export interface StateSnapshot {
@@ -27,6 +27,8 @@ export interface GameSettings {
   maxTokens: number;
   costLimit: number;
   maxHistoryMessages: number;
+  // Wait before retrying a failed request; doubles on each retry
+  retryBaseDelayMs: number;
 }
 
 export interface GameRecord {
@@ -56,6 +58,8 @@ export interface GameRecord {
     chancellorCards: PolicyCard[] | null;
     liberalPoliciesBefore: number;
   } | null;
+  // Set when the game stops early
+  abortReason: AbortReason | null;
 }
 
 // Store active games
@@ -91,9 +95,10 @@ export function createGameRecord(
       actionDelay: settings?.actionDelay ?? 2,
       showThoughts: settings?.showThoughts ?? true,
       temperature: settings?.temperature ?? 0.7,
-      maxTokens: settings?.maxTokens ?? 500,
+      maxTokens: settings?.maxTokens ?? 1500,
       costLimit: settings?.costLimit ?? 1.0,
       maxHistoryMessages: settings?.maxHistoryMessages ?? 40,
+      retryBaseDelayMs: settings?.retryBaseDelayMs ?? 1000,
     },
     isRunning: false,
     isPaused: false,
@@ -112,6 +117,7 @@ export function createGameRecord(
     llmCalls: [],
     unloggedMessages: new Map(gameState.players.map((p) => [p.id, []])),
     legislation: null,
+    abortReason: null,
   };
   games.set(gameId, record);
   return record;

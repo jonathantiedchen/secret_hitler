@@ -5,7 +5,7 @@ import type { Vote } from '../../game/types.js';
 import { getVotingPrompt } from '../../ai/prompts.js';
 import type { GameRecord, PublicEvent } from '../gameRecord.js';
 import { createEvent } from '../state.js';
-import { askForDecision, recordDialogue, publishEvent, tellPrivately, formatTracks, pickRandom, type LLMClient, type Emit, type TrackCost } from '../conversation.js';
+import { askForDecision, recordDialogue, publishEvent, formatTracks, type LLMClient, type Emit, type TrackCost } from '../conversation.js';
 
 // ja/yes or nein/no in any case; anything else is not a usable vote
 function parseVote(raw: unknown): Vote | null {
@@ -29,20 +29,15 @@ export async function handleVoting(
 
   // Each alive player votes
   for (const player of alivePlayers) {
-    const parsed = await askForDecision(game, llmClient, emit, trackCost, player,
-      getVotingPrompt(game.state, nominee), 'voting');
-    if (parsed?.dialogue) recordDialogue(game, emit, player, parsed.dialogue, voteDialogue);
-
-    // A missing or unrecognised vote falls back to a random one, so every player is counted
-    const chosen = parseVote(parsed?.action?.vote);
-    const fallback = chosen === null;
-    const vote: Vote = chosen ?? pickRandom<Vote>(['ja', 'nein']);
+    const { response, value: vote } = await askForDecision(game, llmClient, emit, trackCost, player,
+      getVotingPrompt(game.state, nominee), 'voting', (r) => {
+        const v = parseVote(r.action?.vote);
+        return v ? { ok: true, value: v } : { ok: false, error: '"vote" must be "ja" or "nein".' };
+      });
+    if (response.dialogue) recordDialogue(game, emit, player, response.dialogue, voteDialogue);
 
     game.state = castVote(game.state, player.id, vote);
-    if (fallback) {
-      tellPrivately(game, player.id, `Your response could not be used, so a random vote was cast for you: you voted ${vote.toUpperCase()}.`);
-    }
-    createEvent(game, 'vote', { playerId: player.id, playerName: player.name, vote, ...(fallback && { fallback: true }) });
+    createEvent(game, 'vote', { playerId: player.id, playerName: player.name, vote });
     emit('vote', { playerId: player.id, playerName: player.name, vote });
   }
 

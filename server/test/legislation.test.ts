@@ -1,98 +1,98 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createGameRecord, type GameRecord } from '../src/server/gameRecord.js';
 import { handlePresidentLegislation, handleChancellorLegislation } from '../src/server/phases/legislation.js';
-import { deck, fakeClient } from './helpers.js';
+import { DecisionFailedError } from '../src/server/conversation.js';
+import { deck, fakeClient, inOrder } from './helpers.js';
 
 const noop = () => {};
 
-// Failed requests are logged to the console on purpose; keep test output clean
+// Rejected replies are logged to the console on purpose; keep test output clean
 beforeEach(() => { vi.spyOn(console, 'error').mockImplementation(() => {}); });
 afterEach(() => { vi.restoreAllMocks(); });
 
 // President P0 and Chancellor P1 elected; the deck is drawn in the given order
-function electedGame(drawPile = deck('F', 'L', 'F', 'L', 'L', 'L')): GameRecord {
+function electedGame(drawPile = deck('F', 'L', 'F', 'L', 'L', 'L'), fascistPolicies = 0): GameRecord {
   const players = Array.from({ length: 5 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, model: 'fake' }));
-  const game = createGameRecord(`test-${Math.random()}`, players, null, {});
-  game.state = { ...game.state, phase: 'legislation_president', presidentIndex: 0, chancellorIndex: 1, drawPile };
+  const game = createGameRecord(`test-${Math.random()}`, players, null, { retryBaseDelayMs: 0 });
+  game.state = { ...game.state, phase: 'legislation_president', presidentIndex: 0, chancellorIndex: 1, drawPile, fascistPolicies };
   return game;
 }
 
 const eventsOf = (game: GameRecord, type: string) => game.history.events.filter((e) => e.type === type).map((e) => e.data);
-const lastMessage = (game: GameRecord, playerId: string) => game.playerMessages.get(playerId)!.at(-1)!.content;
+const discard = (index: unknown) => JSON.stringify({ action: { type: 'discard', index } });
+const enact = (index: unknown) => JSON.stringify({ action: { type: 'enact', index } });
 
 describe('president legislation', () => {
   it('discards the chosen card', async () => {
     const game = electedGame();
-    await handlePresidentLegislation(game, fakeClient('{"action":{"type":"discard","index":1}}'), noop, noop);
+    await handlePresidentLegislation(game, fakeClient(discard(1)), noop, noop);
     expect(eventsOf(game, 'president_discard')).toEqual([{ playerId: 'p0', discardIndex: 1, discardedCard: 'liberal', passedCards: deck('F', 'F') }]);
     expect(game.state.drawnCards).toEqual(deck('F', 'F'));
   });
 
-  it.each([
-    ['the request fails', new Error('network down')],
-    ['the reply is not JSON', 'I discard the liberal one'],
-    ['the index is out of range', '{"action":{"type":"discard","index":3}}'],
-    ['the index is missing', '{"action":{"type":"discard"}}'],
-  ])('when %s, discards the first card, logs a fallback and tells the player', async (_case, reply) => {
-    const game = electedGame();
-    await handlePresidentLegislation(game, fakeClient(reply), noop, noop);
-    expect(eventsOf(game, 'president_discard')).toEqual([{ playerId: 'p0', discardIndex: 0, discardedCard: 'fascist', passedCards: deck('L', 'F'), fallback: true }]);
-    expect(game.state.phase).toBe('legislation_chancellor');
-    expect(lastMessage(game, 'p0')).toMatch(/\[PRIVATE\].*discarded FASCIST/);
-  });
-
   it('accepts an index given as a numeric string', async () => {
     const game = electedGame();
-    await handlePresidentLegislation(game, fakeClient('{"action":{"type":"discard","index":"2"}}'), noop, noop);
+    await handlePresidentLegislation(game, fakeClient(discard('2')), noop, noop);
     expect(eventsOf(game, 'president_discard')[0]).toMatchObject({ discardIndex: 2 });
+  });
+
+  it.each([3, -1, 'first', null])('rejects index %s, explains, and uses the corrected reply', async (bad) => {
+    const game = electedGame();
+    const client = fakeClient(inOrder(discard(bad), discard(1)));
+    await handlePresidentLegislation(game, client, noop, noop);
+    expect(client.sent[1]).toMatch(/"index" must be 0, 1 or 2/);
+    expect(eventsOf(game, 'president_discard')[0]).toMatchObject({ discardIndex: 1 });
+  });
+
+  it('aborts instead of discarding for a president who never gives a valid index', async () => {
+    const game = electedGame();
+    await expect(handlePresidentLegislation(game, fakeClient(discard(7)), noop, noop)).rejects.toBeInstanceOf(DecisionFailedError);
+    expect(eventsOf(game, 'president_discard')).toEqual([]);
   });
 });
 
 describe('chancellor legislation', () => {
   // Chancellor holds [LIBERAL, FASCIST]
-  async function chancellorHolding() {
-    const game = electedGame(deck('F', 'L', 'F', 'L', 'L', 'L'));
-    await handlePresidentLegislation(game, fakeClient('{"action":{"type":"discard","index":0}}'), noop, noop);
+  async function chancellorHolding(fascistPolicies = 0) {
+    const game = electedGame(deck('F', 'L', 'F', 'L', 'L', 'L'), fascistPolicies);
+    await handlePresidentLegislation(game, fakeClient(discard(0)), noop, noop);
     return game;
   }
 
   it('enacts the chosen card', async () => {
     const game = await chancellorHolding();
-    await handleChancellorLegislation(game, fakeClient('{"action":{"type":"enact","index":1}}'), noop, noop);
+    await handleChancellorLegislation(game, fakeClient(enact(1)), noop, noop);
     expect(game.state.fascistPolicies).toBe(1);
     expect(eventsOf(game, 'chancellor_enact')).toEqual([{ playerId: 'p1', enactIndex: 1, enactedPolicy: 'fascist', discardedCard: 'liberal' }]);
   });
 
-  it('an out-of-range index enacts the first card, not a fascist policy', async () => {
+  it('an out-of-range index is sent back, never enacted as a fascist policy', async () => {
     const game = await chancellorHolding();
-    await handleChancellorLegislation(game, fakeClient('{"action":{"type":"enact","index":5}}'), noop, noop);
+    const client = fakeClient(inOrder(enact(5), enact(0)));
+    await handleChancellorLegislation(game, client, noop, noop);
+    expect(client.sent[1]).toMatch(/"index" must be 0 or 1/);
     expect(game.state.liberalPolicies).toBe(1);
     expect(game.state.fascistPolicies).toBe(0);
   });
 
-  it.each([
-    ['the request fails', new Error('network down')],
-    ['the reply is not JSON', 'Liberal, obviously'],
-    ['the index is out of range', '{"action":{"type":"enact","index":5}}'],
-  ])('when %s, logs the enactment as a fallback and tells the player', async (_case, reply) => {
+  it('a veto before 5 fascist policies is sent back with the reason', async () => {
     const game = await chancellorHolding();
-    await handleChancellorLegislation(game, fakeClient(reply), noop, noop);
-    expect(eventsOf(game, 'chancellor_enact')).toEqual([{ playerId: 'p1', enactIndex: 0, enactedPolicy: 'liberal', discardedCard: 'fascist', fallback: true }]);
-    expect(eventsOf(game, 'policy_enacted')).toEqual([{ policy: 'liberal', liberalPolicies: 1, fascistPolicies: 0 }]);
-    expect(lastMessage(game, 'p1')).toMatch(/\[PRIVATE\].*enacted LIBERAL/);
+    const client = fakeClient(inOrder('{"action":{"type":"veto"}}', enact(0)));
+    await handleChancellorLegislation(game, client, noop, noop);
+    expect(client.sent[1]).toMatch(/veto power is not unlocked/);
+    expect(game.state.liberalPolicies).toBe(1);
   });
 
-  it('a veto proposal before 5 fascist policies is ignored and falls back', async () => {
-    const game = await chancellorHolding();
-    await handleChancellorLegislation(game, fakeClient('{"action":{"type":"veto"}}'), noop, noop);
-    expect(game.state.phase).not.toBe('veto_proposed');
-    expect(eventsOf(game, 'chancellor_enact')[0]).toMatchObject({ fallback: true });
+  it('a veto after 5 fascist policies is proposed', async () => {
+    const game = await chancellorHolding(5);
+    await handleChancellorLegislation(game, fakeClient('{"action":{"type":"veto"},"dialogue":"No."}'), noop, noop);
+    expect(game.state.phase).toBe('veto_proposed');
   });
-});
 
-describe('error reporting', () => {
-  it('failed requests are reported on the console', async () => {
-    await handlePresidentLegislation(electedGame(), fakeClient(new Error('network down')), noop, noop);
-    expect(console.error).toHaveBeenCalled();
+  it('aborts instead of enacting for a chancellor who never gives a valid index', async () => {
+    const game = await chancellorHolding();
+    await expect(handleChancellorLegislation(game, fakeClient('Liberal, obviously'), noop, noop)).rejects.toBeInstanceOf(DecisionFailedError);
+    expect(eventsOf(game, 'chancellor_enact')).toEqual([]);
+    expect(game.state.liberalPolicies + game.state.fascistPolicies).toBe(0);
   });
 });

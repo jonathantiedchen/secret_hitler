@@ -6,7 +6,7 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { GameLog } from '../logging/gameLog.js';
-import { extractClaims, gameResults, selectLogs, summarize, type ClaimRow, type ClaimSummary, type GroupKey } from './analyze.js';
+import { dataQuality, extractClaims, gameResults, selectLogs, summarize, type ClaimRow, type ClaimSummary, type GroupKey } from './analyze.js';
 
 function parseArgs(argv: string[]) {
   const args = { dir: process.env.LOG_DIRECTORY || fileURLToPath(new URL('../../../logs', import.meta.url)), promptVersion: undefined as string | undefined, includeMock: false, csv: undefined as string | undefined };
@@ -72,11 +72,20 @@ function writeCsv(path: string, rows: ClaimRow[]) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const { selected, excluded } = selectLogs(loadLogs(args.dir), args);
+  const logs = loadLogs(args.dir);
+  const { selected, excluded } = selectLogs(logs, args);
 
   console.log(`Logs: ${args.dir}`);
   console.log(`Games analysed: ${selected.length} (prompt version ${selected[0]?.promptVersion ?? '-'})`);
-  console.log(`Excluded: ${excluded.notCompleted} not completed, ${excluded.mock} mock${args.includeMock ? '' : ' (use --include-mock)'}, ${excluded.otherPromptVersion} other prompt version\n`);
+  console.log(`Excluded: ${excluded.aborted} aborted, ${excluded.inProgress} unfinished, ${excluded.mock} mock${args.includeMock ? '' : ' (use --include-mock)'}, ${excluded.otherPromptVersion} other prompt version\n`);
+
+  // Data quality covers aborted games too: they are where a model failed
+  const quality = dataQuality(logs.filter((l) => args.includeMock || !l.config.mockMode));
+  console.log('Data quality by model (all games, aborted included)');
+  table(
+    ['model', 'requests', 'rejected', 'rejection rate', 'request errors', 'games aborted'],
+    quality.map((q) => [q.model, String(q.requests), String(q.rejected), pct(q.rejectionRate), String(q.requestErrors), String(q.gamesAborted)])
+  );
   if (selected.length === 0) return;
 
   const rows = selected.flatMap(extractClaims);

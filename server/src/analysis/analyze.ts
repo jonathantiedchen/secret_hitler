@@ -65,11 +65,12 @@ export interface SelectOptions {
 
 // Pick the games to analyse. Throws when logs from several prompt versions would be pooled.
 export function selectLogs(logs: GameLog[], options: SelectOptions) {
-  const excluded = { notCompleted: 0, mock: 0, otherPromptVersion: 0 };
+  const excluded = { aborted: 0, inProgress: 0, mock: 0, otherPromptVersion: 0 };
   const selected: GameLog[] = [];
 
   for (const log of logs) {
-    if (log.status !== 'completed') excluded.notCompleted++;
+    if (log.status === 'aborted') excluded.aborted++;
+    else if (log.status !== 'completed') excluded.inProgress++;
     else if (log.config.mockMode && !options.includeMock) excluded.mock++;
     else if (options.promptVersion !== undefined && log.promptVersion !== options.promptVersion) excluded.otherPromptVersion++;
     else selected.push(log);
@@ -156,4 +157,41 @@ export function gameResults(logs: GameLog[]): GameResultSummary[] {
     }
   }
   return [...results.values()].sort((a, b) => a.model.localeCompare(b.model) || a.party.localeCompare(b.party));
+}
+
+export interface DataQualitySummary {
+  model: string;
+  requests: number;
+  // Replies that arrived but could not be used, so the model was asked again
+  rejected: number;
+  rejectionRate: number;
+  // Requests that failed (network, API) and were resent
+  requestErrors: number;
+  // Games stopped because this model gave no usable decision after all retries
+  gamesAborted: number;
+}
+
+// How reliably each model produced usable decisions. Pass every log, aborted games included.
+export function dataQuality(logs: GameLog[]): DataQualitySummary[] {
+  const byModel = new Map<string, DataQualitySummary>();
+  const entry = (model: string) => {
+    if (!byModel.has(model)) byModel.set(model, { model, requests: 0, rejected: 0, rejectionRate: 0, requestErrors: 0, gamesAborted: 0 });
+    return byModel.get(model)!;
+  };
+
+  for (const log of logs) {
+    const models = new Map(log.players.map((p) => [p.id, p.model]));
+    for (const m of models.values()) entry(m);
+    for (const call of log.llmCalls) {
+      const e = entry(models.get(call.playerId)!);
+      e.requests++;
+      if (call.rejected) e.rejected++;
+      if (call.error) e.requestErrors++;
+    }
+    if (log.abortReason && 'model' in log.abortReason) entry(log.abortReason.model).gamesAborted++;
+  }
+
+  return [...byModel.values()]
+    .map((e) => ({ ...e, rejectionRate: e.requests ? e.rejected / e.requests : 0 }))
+    .sort((a, b) => a.model.localeCompare(b.model));
 }
