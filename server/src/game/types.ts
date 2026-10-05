@@ -125,6 +125,8 @@ export interface GameEvent {
 
 export interface GameHistory {
   gameId: string;
+  // Version of the system prompt the players received (see SYSTEM_PROMPT_VERSION)
+  systemPromptVersion: string;
   startTime: number;
   endTime: number | null;
   players: Player[];

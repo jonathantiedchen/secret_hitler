@@ -5,7 +5,7 @@ import { Server } from 'socket.io';
 import { createGame, nominate, castVote, tallyVotes, resolveVote, drawCards, presidentDiscard, chancellorEnact, executePlayer, investigatePlayer, specialElection, getValidChancellorCandidates, finishPolicyEnacted, peekCards, proposeVeto, respondToVeto, isVetoUnlocked } from './game/engine.js';
 import type { GameState, Vote, GameEvent, GameHistory, Player } from './game/types.js';
 import { OpenRouterClient, MockLLMClient } from './ai/openrouter.js';
-import { getSystemPrompt, buildStateHeader, getNominationPrompt, getVotingPrompt, getPresidentLegislationPrompt, getChancellorLegislationPrompt, getExecutionPrompt, getInvestigationPrompt, getSpecialElectionPrompt, getVetoResponsePrompt } from './ai/prompts.js';
+import { getSystemPrompt, buildStateHeader, getNominationPrompt, getVotingPrompt, getPresidentLegislationPrompt, getChancellorLegislationPrompt, getExecutionPrompt, getInvestigationPrompt, getSpecialElectionPrompt, getVetoResponsePrompt, SYSTEM_PROMPT_VERSION } from './ai/prompts.js';
 import type { ChatMessage } from './ai/openrouter.js';
 
 const app = express();
@@ -97,6 +97,7 @@ app.post('/api/games', (req, res) => {
 
   const history: GameHistory = {
     gameId,
+    systemPromptVersion: SYSTEM_PROMPT_VERSION,
     startTime: Date.now(),
     endTime: null,
     players: gameState.players.map(p => ({ ...p })),

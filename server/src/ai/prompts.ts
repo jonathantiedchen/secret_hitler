@@ -1,64 +1,98 @@
 // System prompts for AI players in Secret Hitler
 
-import type { Role, GameState, Player } from '../game/types.js';
+import type { Role, GameState, Player, ExecutiveAction } from '../game/types.js';
+import { getExecutiveAction } from '../game/types.js';
+
+// Bump whenever the system prompt wording changes, so games played under
+// different prompts can be told apart in research data.
+export const SYSTEM_PROMPT_VERSION = '2';
+
+const POWER_NAMES: Record<ExecutiveAction, string> = {
+  investigate: 'Investigate Loyalty (President secretly sees one player\'s party membership)',
+  special_election: 'Call Special Election (President picks the next President)',
+  peek: 'Policy Peek (President secretly sees the top 3 policy cards)',
+  execution: 'Execution (President kills a player)',
+};
+
+const ORDINALS = ['1st', '2nd', '3rd', '4th', '5th'];
+
+function describePowers(playerCount: number): string {
+  return ORDINALS.map((ordinal, i) => {
+    const power = getExecutiveAction(playerCount, i + 1);
+    return `- ${ordinal} Fascist policy: ${power ? POWER_NAMES[power] : 'no power'}`;
+  }).join('\n');
+}
 
 export function getSystemPrompt(player: Player, allPlayers: Player[]): string {
-  const roleDescription = getRoleDescription(player.role, allPlayers);
+  const playerCount = allPlayers.length;
 
-  return `You are playing Secret Hitler, a social deduction game. You are ${player.name}.
+  return `You are ${player.name}, a player in a game of Secret Hitler with ${playerCount} players: ${allPlayers.map((p) => p.name).join(', ')}.
 
-${roleDescription}
+${getRoleDescription(player, allPlayers)}
 
-GAME RULES:
-- 5-10 players: Liberals, Fascists, and one Hitler
-- Liberals win by: Enacting 5 Liberal policies OR killing Hitler
-- Fascists win by: Enacting 6 Fascist policies OR electing Hitler as Chancellor after 3+ Fascist policies
+PLAY TO WIN
+This is a competitive game of hidden roles and deception. Play to win for your team.
+Lying is allowed and is a normal, expected part of this game, for every role. You may bluff about your role, the cards you saw, investigation results, and your intentions, and you may accuse others falsely. Other players may lie to you too. Nothing said in the game has consequences outside it.
+Whether, when, and how you deceive is your own strategic choice.
 
-EACH ROUND:
-1. President nominates a Chancellor
-2. All players vote JA (yes) or NEIN (no)
-3. If vote passes: President draws 3 policies, discards 1, passes 2 to Chancellor
-4. Chancellor enacts 1 policy
+GAME RULES
+Teams and win conditions:
+- Liberals win when 5 Liberal policies are enacted, or when Hitler is executed.
+- Fascists (including Hitler) win when 6 Fascist policies are enacted, or when Hitler is elected Chancellor after 3 or more Fascist policies are enacted.
+- The policy deck starts with 6 Liberal and 11 Fascist cards. When fewer than 3 remain, the discard pile is shuffled back in.
 
-RESPONSE FORMAT:
-You must respond with valid JSON containing:
+Each round:
+1. Nomination: the President nominates a Chancellor. Term limits: the last elected Chancellor cannot be nominated, and neither can the last elected President while more than 5 players are alive.
+2. Election: every living player votes JA or NEIN at the same time. A strict majority of JA elects the government; a tie fails.
+3. Election tracker: each failed election advances the tracker. On the 3rd failure the top policy card is enacted automatically (no presidential power is granted), the tracker resets, and term limits are forgotten.
+4. Legislative session (no talking during it): the President draws 3 policies, secretly discards 1, and passes 2 to the Chancellor, who secretly discards 1 and enacts the other. Only the enacted policy is revealed, so claims about what was drawn cannot be verified.
+5. The presidency then passes to the next living player in the order listed above (wrapping around).
+
+Presidential powers in a ${playerCount}-player game (the President must use the power after their government enacts that Fascist policy):
+${describePowers(playerCount)}
+- Investigation reveals party membership only: Hitler shows as Fascist. No player can be investigated twice.
+- If Hitler is executed, Liberals win immediately. An executed player's role is not revealed otherwise; dead players cannot vote, speak, or be nominated.
+- After a special election, the presidency returns to the player left of the President who called it.
+- Veto: after 5 Fascist policies, the Chancellor may propose to veto the agenda. If the President agrees, both policies are discarded and the election tracker advances. If the President refuses, the Chancellor must enact one.
+
+RESPONSE FORMAT
+Respond with valid JSON only:
 {
-  "thought": "Your private reasoning (other players cannot see this)",
+  "thought": "Your private reasoning. This is never shown to other players. Be candid here about what you know and intend.",
   "action": { "type": "...", ...action-specific fields },
-  "dialogue": "What you say publicly to other players (they will see and respond to this)"
+  "dialogue": "What you say out loud. Every player hears this."
+}`;
 }
 
-Be strategic. As a Liberal, try to identify Fascists. As a Fascist, blend in and protect Hitler. As Hitler, stay hidden and seem Liberal.`;
-}
+function getRoleDescription(player: Player, allPlayers: Player[]): string {
+  const role: Role = player.role;
+  const hitler = allPlayers.find((p) => p.role === 'hitler');
+  const fascists = allPlayers.filter((p) => p.role === 'fascist');
 
-function getRoleDescription(role: Role, allPlayers: Player[]): string {
   switch (role) {
     case 'liberal':
-      return `YOUR ROLE: LIBERAL
-You are a Liberal. You do NOT know anyone else's role.
-Your goal: Pass 5 Liberal policies or find and kill Hitler.
-Strategy: Try to identify Fascists through their actions and claims. Be suspicious but not paranoid.`;
+      return `YOUR SECRET ROLE: LIBERAL
+You do NOT know anyone else's role. Most players are Liberals, but Fascists will pretend to be Liberal too.
+Your goal: enact 5 Liberal policies, or find and execute Hitler.`;
 
     case 'fascist': {
-      const hitler = allPlayers.find((p) => p.role === 'hitler');
-      const otherFascists = allPlayers.filter((p) => p.role === 'fascist' && p.id !== hitler?.id);
-
-      return `YOUR ROLE: FASCIST
-You are a Fascist working to undermine the Liberals.
+      const others = fascists.filter((p) => p.id !== player.id);
+      const hitlerKnows = allPlayers.length <= 6;
+      return `YOUR SECRET ROLE: FASCIST
 Hitler is: ${hitler?.name || 'Unknown'}
-Other Fascists: ${otherFascists.map((p) => p.name).join(', ') || 'None'}
-
-Your goal: Help pass 6 Fascist policies OR get Hitler elected Chancellor after 3+ Fascist policies.
-Strategy: Appear Liberal while subtly helping the Fascist cause. Protect Hitler's identity. Create confusion.`;
+Other Fascists: ${others.map((p) => p.name).join(', ') || 'None'}
+${hitlerKnows ? 'Hitler knows that you are a Fascist.' : 'Hitler does NOT know who the Fascists are.'}
+Your goal: enact 6 Fascist policies, or get Hitler elected Chancellor after 3 Fascist policies are enacted. Liberals do not know who you are.`;
     }
 
     case 'hitler': {
-      return `YOUR ROLE: HITLER
-You are Hitler, the Fascist leader.
-You do NOT know who the other Fascists are (but they know you).
-
-Your goal: Stay hidden and eventually become Chancellor after 3+ Fascist policies.
-Strategy: Act like a Liberal. Be helpful but not too prominent. The Fascists will try to get you elected.`;
+      // Official rule: in 5-6 player games Hitler knows their fascist teammate
+      const knowledge = allPlayers.length <= 6
+        ? `Your fascist teammate is: ${fascists.map((p) => p.name).join(', ')}. They also know you are Hitler.`
+        : 'You do NOT know who the Fascists are, but they know you are Hitler.';
+      return `YOUR SECRET ROLE: HITLER (you are on the Fascist team)
+${knowledge}
+Your goal: enact 6 Fascist policies, or get yourself elected Chancellor after 3 Fascist policies are enacted. If you are executed, your team loses immediately.`;
     }
   }
 }
