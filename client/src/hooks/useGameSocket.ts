@@ -282,6 +282,14 @@ export function useGameSocket(gameId: string | null) {
       });
     });
 
+    // Public claim about privately seen cards or an investigation
+    socket.on('claim', ({ content }) => {
+      addChatMessage({
+        type: 'action',
+        content,
+      });
+    });
+
     // Special election
     socket.on('special_election', ({ target }) => {
       addChatMessage({

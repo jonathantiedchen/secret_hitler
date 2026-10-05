@@ -3,9 +3,10 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { createGame, nominate, castVote, tallyVotes, resolveVote, drawCards, presidentDiscard, chancellorEnact, executePlayer, investigatePlayer, specialElection, getValidChancellorCandidates, finishPolicyEnacted, peekCards, proposeVeto, respondToVeto, isVetoUnlocked } from './game/engine.js';
-import type { GameState, Vote, GameEvent, GameHistory, Player } from './game/types.js';
+import type { GameState, Vote, GameEvent, GameHistory, Player, PolicyCard } from './game/types.js';
 import { OpenRouterClient, MockLLMClient } from './ai/openrouter.js';
-import { getSystemPrompt, buildStateHeader, getNominationPrompt, getVotingPrompt, getPresidentLegislationPrompt, getChancellorLegislationPrompt, getExecutionPrompt, getInvestigationPrompt, getSpecialElectionPrompt, getVetoResponsePrompt, PROMPT_VERSION } from './ai/prompts.js';
+import { getSystemPrompt, buildStateHeader, getNominationPrompt, getVotingPrompt, getPresidentLegislationPrompt, getChancellorLegislationPrompt, getExecutionPrompt, getInvestigationPrompt, getSpecialElectionPrompt, getVetoResponsePrompt, getLegislationClaimPrompt, getInvestigationClaimPrompt, getPeekClaimPrompt, PROMPT_VERSION } from './ai/prompts.js';
+import { evaluateClaim } from './game/claims.js';
 import type { ChatMessage } from './ai/openrouter.js';
 import { buildGameLog, writeGameLog, type GameLogStatus, type LLMCallRecord } from './logging/gameLog.js';
 import { fileURLToPath } from 'node:url';
@@ -60,6 +61,14 @@ const games = new Map<string, {
   llmCalls: LLMCallRecord[];
   // Messages added to each player's conversation since their last logged call
   unloggedMessages: Map<string, ChatMessage[]>;
+  // The current legislative session, kept until both players have made their claims
+  legislation: {
+    presidentId: string;
+    presidentCards: PolicyCard[];
+    chancellorId: string | null;
+    chancellorCards: PolicyCard[] | null;
+    liberalPoliciesBefore: number;
+  } | null;
 }>();
 
 type GameRecord = typeof games extends Map<string, infer T> ? T : never;
@@ -146,6 +155,7 @@ app.post('/api/games', (req, res) => {
     publicEventCursor: new Map(gameState.players.map((p) => [p.id, 0])),
     llmCalls: [],
     unloggedMessages: new Map(gameState.players.map((p) => [p.id, []])),
+    legislation: null,
   });
 
   res.json({ gameId, state: sanitizeGameState(gameState) });
@@ -541,6 +551,15 @@ async function runGameLoop(gameId: string) {
           break;
       }
 
+      // Legislative session over: if a policy was enacted, the government claims what they saw
+      const inSession = ['legislation_president', 'legislation_chancellor', 'veto_proposed'].includes(game.state.phase);
+      if (game.legislation && !inSession) {
+        if (game.state.phase === 'policy_enacted' || game.state.phase === 'executive_action') {
+          await handleLegislationClaims(game, llmClient, emit, trackCost);
+        }
+        game.legislation = null;
+      }
+
       await delay(game.settings.actionDelay * 500);
     }
 
@@ -849,6 +868,13 @@ async function handlePresidentLegislation(
   // Draw cards
   game.state = drawCards(game.state);
   const cards = game.state.drawnCards;
+  game.legislation = {
+    presidentId: president.id,
+    presidentCards: [...cards],
+    chancellorId: null,
+    chancellorCards: null,
+    liberalPoliciesBefore: game.state.liberalPolicies,
+  };
 
   createEvent(game, 'cards_drawn', { playerId: president.id, cards: [...cards] });
   emit('cards_drawn', { playerId: president.id, cards });
@@ -985,6 +1011,10 @@ async function handleChancellorLegislation(
 ) {
   const chancellor = game.state.players[game.state.chancellorIndex!];
   const cards = game.state.drawnCards;
+  if (game.legislation) {
+    game.legislation.chancellorId = chancellor.id;
+    game.legislation.chancellorCards = [...cards];
+  }
 
   emit('cards_received', { playerId: chancellor.id, cards });
 
@@ -1176,6 +1206,119 @@ async function handleVetoResponse(
   }
 }
 
+type ClaimType = 'president_legislation' | 'chancellor_legislation' | 'investigation' | 'peek';
+
+// Ask a player to publicly claim what they privately saw, and log the claim next to the truth.
+// Never throws: a failed or malformed claim is recorded as no claim.
+async function askClaim(
+  game: GameRecord,
+  llmClient: OpenRouterClient | MockLLMClient,
+  emit: (event: string, data: unknown) => void,
+  trackCost: (cost: number) => void,
+  player: Player,
+  claim: {
+    claimType: ClaimType;
+    prompt: string;
+    field: 'cards' | 'party';
+    actual: string[];
+    targetId?: string;
+    announce: (claimed: string[]) => string;
+  }
+) {
+  createEvent(game, 'thinking', { playerId: player.id, playerName: player.name });
+  emit('thinking', { playerId: player.id, playerName: player.name });
+
+  let claimed: string[] | null = null;
+  let malformed = false;
+  try {
+    const { response, prompt } = await askPlayer(game, llmClient, player, claim.prompt);
+    trackCost(response.cost);
+    emit('debug', {
+      playerId: player.id,
+      playerName: player.name,
+      model: player.model,
+      phase: `claim_${claim.claimType}`,
+      prompt,
+      response: response.content,
+    });
+
+    const parsed = JSON.parse(response.content);
+    const raw = parsed.action?.[claim.field];
+    const valid = (x: unknown) => typeof x === 'string' && ['LIBERAL', 'FASCIST'].includes(x.toUpperCase());
+    if (raw === null || raw === undefined) {
+      claimed = null;
+    } else if (claim.field === 'party' && valid(raw)) {
+      claimed = [raw.toUpperCase()];
+    } else if (claim.field === 'cards' && Array.isArray(raw) && raw.every(valid)) {
+      claimed = raw.map((c: string) => c.toUpperCase());
+    } else {
+      malformed = true;
+    }
+
+    if (parsed.thought) {
+      createEvent(game, 'thought', { playerId: player.id, playerName: player.name, content: parsed.thought });
+      if (game.settings.showThoughts) {
+        emit('thought', { playerId: player.id, playerName: player.name, content: parsed.thought });
+      }
+    }
+    if (parsed.dialogue) {
+      createEvent(game, 'dialogue', { playerId: player.id, playerName: player.name, content: parsed.dialogue });
+      publishEvent(game, `${player.name}: "${parsed.dialogue}"`, player.id);
+      emit('dialogue', { playerId: player.id, playerName: player.name, content: parsed.dialogue });
+    }
+  } catch (e) {
+    console.error(`Claim error for ${player.name}:`, e);
+    malformed = true;
+  }
+
+  const announcement = claimed
+    ? `${player.name} claims ${claim.announce(claimed)}.`
+    : `${player.name} made no specific claim.`;
+  publishEvent(game, announcement);
+  emit('claim', { playerId: player.id, playerName: player.name, claimType: claim.claimType, claimed, content: announcement });
+  createEvent(game, 'claim', {
+    claimType: claim.claimType,
+    playerId: player.id,
+    playerName: player.name,
+    targetId: claim.targetId,
+    actual: claim.actual.map((c) => c.toUpperCase()),
+    claimed,
+    truthful: evaluateClaim(claim.actual, claimed),
+    malformed,
+  });
+}
+
+// After an enacted policy: President claims first, then Chancellor (who has heard the President)
+async function handleLegislationClaims(
+  game: GameRecord,
+  llmClient: OpenRouterClient | MockLLMClient,
+  emit: (event: string, data: unknown) => void,
+  trackCost: (cost: number) => void
+) {
+  const session = game.legislation!;
+  const enacted: PolicyCard = game.state.liberalPolicies > session.liberalPoliciesBefore ? 'liberal' : 'fascist';
+  const president = game.state.players.find((p) => p.id === session.presidentId)!;
+
+  await askClaim(game, llmClient, emit, trackCost, president, {
+    claimType: 'president_legislation',
+    prompt: getLegislationClaimPrompt('president', session.presidentCards, enacted),
+    field: 'cards',
+    actual: session.presidentCards,
+    announce: (claimed) => `they drew ${claimed.join(', ')}`,
+  });
+
+  if (session.chancellorId && session.chancellorCards) {
+    const chancellor = game.state.players.find((p) => p.id === session.chancellorId)!;
+    await askClaim(game, llmClient, emit, trackCost, chancellor, {
+      claimType: 'chancellor_legislation',
+      prompt: getLegislationClaimPrompt('chancellor', session.chancellorCards, enacted),
+      field: 'cards',
+      actual: session.chancellorCards,
+      announce: (claimed) => `they received ${claimed.join(', ')}`,
+    });
+  }
+}
+
 async function handleExecutiveAction(
   game: ReturnType<typeof games.get> & {},
   llmClient: OpenRouterClient | MockLLMClient,
@@ -1197,6 +1340,13 @@ async function handleExecutiveAction(
     tellPrivately(game, president.id, `Policy peek: the top 3 cards of the deck are ${peeked.map((c) => c.toUpperCase()).join(', ')}.`);
     publishEvent(game, `President ${president.name} used the policy peek power and looked at the top 3 cards.`);
     createEvent(game, 'peek', { presidentId: president.id, cards: peeked });
+    await askClaim(game, llmClient, emit, trackCost, president, {
+      claimType: 'peek',
+      prompt: getPeekClaimPrompt(peeked),
+      field: 'cards',
+      actual: peeked,
+      announce: (claimed) => `the top 3 cards are ${claimed.join(', ')}`,
+    });
     game.state = finishPolicyEnacted(game.state);
     return;
   }
@@ -1297,6 +1447,17 @@ async function handleExecutiveAction(
           });
           publishEvent(game, `President ${president.name} investigated ${game.state.players[targetIndex].name}'s party membership.`);
           tellPrivately(game, president.id, `Investigation result: ${game.state.players[targetIndex].name} is a ${result.party.toUpperCase()}.`);
+          {
+            const target = game.state.players[targetIndex];
+            await askClaim(game, llmClient, emit, trackCost, president, {
+              claimType: 'investigation',
+              prompt: getInvestigationClaimPrompt(target.name, result.party),
+              field: 'party',
+              actual: [result.party],
+              targetId: target.id,
+              announce: (claimed) => `${target.name} is a ${claimed[0]}`,
+            });
+          }
           emit('investigation', {
             target: game.state.players[targetIndex].name,
             party: result.party,

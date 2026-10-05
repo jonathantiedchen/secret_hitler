@@ -107,6 +107,7 @@ export type GameEventType =
   | 'chancellor_enact'
   | 'veto_proposed'
   | 'veto_response'
+  | 'claim'
   | 'policy_enacted'
   | 'investigation'
   | 'execution'

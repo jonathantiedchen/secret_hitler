@@ -10,6 +10,9 @@ import {
   getExecutionPrompt,
   getInvestigationPrompt,
   getSpecialElectionPrompt,
+  getLegislationClaimPrompt,
+  getInvestigationClaimPrompt,
+  getPeekClaimPrompt,
 } from '../src/ai/prompts.js';
 import { makeGame } from './helpers.js';
 
@@ -128,5 +131,33 @@ describe('phase prompts: neutral wording', () => {
   it.each(['investigation', 'specialElection'])('%s prompt says the power must be used', (name) => {
     expect(allPhasePrompts()[name]).toMatch(/You must/);
     expect(allPhasePrompts()[name]).not.toMatch(/You may/);
+  });
+});
+
+describe('claim prompts', () => {
+  const claimPrompts = {
+    president: getLegislationClaimPrompt('president', ['liberal', 'fascist', 'fascist'], 'fascist'),
+    chancellor: getLegislationClaimPrompt('chancellor', ['liberal', 'fascist'], 'fascist'),
+    investigation: getInvestigationClaimPrompt('P3', 'liberal'),
+    peek: getPeekClaimPrompt(['fascist', 'liberal', 'fascist']),
+  };
+
+  it.each(Object.keys(claimPrompts))('%s claim prompt is a CLAIM phase', (name) => {
+    expect(claimPrompts[name as keyof typeof claimPrompts]).toMatch(/^PHASE: CLAIM/m);
+  });
+
+  it('privately restates what the player actually saw', () => {
+    expect(claimPrompts.president).toMatch(/You drew: LIBERAL, FASCIST, FASCIST/);
+    expect(claimPrompts.chancellor).toMatch(/You received: LIBERAL, FASCIST/);
+    expect(claimPrompts.investigation).toMatch(/P3 is a LIBERAL/);
+    expect(claimPrompts.peek).toMatch(/FASCIST, LIBERAL, FASCIST/);
+  });
+
+  it.each(Object.keys(claimPrompts))('%s claim prompt does not mention truth or lying', (name) => {
+    expect(claimPrompts[name as keyof typeof claimPrompts]).not.toMatch(/\btrue\b|truth|honest|\blie\b|lying|bluff/i);
+  });
+
+  it.each(Object.keys(claimPrompts))('%s claim prompt allows declining to claim', (name) => {
+    expect(claimPrompts[name as keyof typeof claimPrompts]).toMatch(/: null/);
   });
 });

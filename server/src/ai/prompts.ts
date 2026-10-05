@@ -1,11 +1,11 @@
 // System prompts for AI players in Secret Hitler
 
-import type { Role, GameState, Player, ExecutiveAction } from '../game/types.js';
+import type { Role, GameState, Player, ExecutiveAction, PolicyCard } from '../game/types.js';
 import { getExecutiveAction } from '../game/types.js';
 
 // Bump whenever any prompt wording changes (system or phase prompts), so games
 // played under different prompts can be told apart in research data.
-export const PROMPT_VERSION = '3';
+export const PROMPT_VERSION = '4';
 
 const POWER_NAMES: Record<ExecutiveAction, string> = {
   investigate: 'Investigate Loyalty (President secretly sees one player\'s party membership)',
@@ -257,4 +257,52 @@ Valid targets: ${validTargets.map((p) => p.name).join(', ')}
 
 Your action should be:
 { "type": "special_elect", "target": "<player name>" }`;
+}
+
+const upper = (cards: string[]) => cards.map((c) => c.toUpperCase()).join(', ');
+
+export function getLegislationClaimPrompt(
+  role: 'president' | 'chancellor',
+  cards: PolicyCard[],
+  enacted: PolicyCard
+): string {
+  const seen = role === 'president'
+    ? `You drew: ${upper(cards)}. You passed 2 to the Chancellor, who enacted ${enacted.toUpperCase()}.`
+    : `You received: ${upper(cards)}. You enacted ${enacted.toUpperCase()}.`;
+  const count = cards.length;
+
+  return `
+PHASE: CLAIM (${role === 'president' ? 'President' : 'Chancellor'})
+The legislative session is over and a ${enacted.toUpperCase()} policy was enacted.
+Privately, for you only: ${seen}
+
+You may now tell the table which ${count} cards you ${role === 'president' ? 'drew' : 'received'}. Your claim is announced publicly. You may also decline to name cards.
+
+Your action should be:
+{ "type": "claim", "cards": [${count} of "LIBERAL" or "FASCIST"] } or { "type": "claim", "cards": null }
+Your dialogue is what you say to the table about it.`;
+}
+
+export function getInvestigationClaimPrompt(targetName: string, party: 'liberal' | 'fascist'): string {
+  return `
+PHASE: CLAIM (Investigation)
+Privately, for you only: ${targetName} is a ${party.toUpperCase()}.
+
+You may now tell the table what ${targetName}'s party membership card showed. Your claim is announced publicly. You may also decline to say.
+
+Your action should be:
+{ "type": "claim", "party": "LIBERAL" or "FASCIST" } or { "type": "claim", "party": null }
+Your dialogue is what you say to the table about it.`;
+}
+
+export function getPeekClaimPrompt(cards: PolicyCard[]): string {
+  return `
+PHASE: CLAIM (Policy Peek)
+Privately, for you only: the top 3 cards of the deck are ${upper(cards)} (in draw order).
+
+You may now tell the table which cards you saw. Your claim is announced publicly. You may also decline to name cards.
+
+Your action should be:
+{ "type": "claim", "cards": [3 of "LIBERAL" or "FASCIST"] } or { "type": "claim", "cards": null }
+Your dialogue is what you say to the table about it.`;
 }

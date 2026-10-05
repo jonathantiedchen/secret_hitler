@@ -235,6 +235,29 @@ export class MockLLMClient {
       });
     }
 
+    if (context.includes('PHASE: CLAIM')) {
+      // Mostly truthful, sometimes a lie (one card flipped), sometimes no claim
+      const seen = context.match(/Privately, for you only: [^\n]*/)?.[0] ?? '';
+      const cards = seen.match(/LIBERAL|FASCIST/g) ?? [];
+      const roll = Math.random();
+      if (roll < 0.1) {
+        return JSON.stringify({ thought: 'Better not to commit to anything.', action: { type: 'claim', cards: null, party: null }, dialogue: 'I\'d rather not say.' });
+      }
+      const flip = (c: string) => (c === 'LIBERAL' ? 'FASCIST' : 'LIBERAL');
+      const lie = roll < 0.3;
+      if (context.includes('PHASE: CLAIM (Investigation)')) {
+        // The private line ends with the party; the name before it may not contain card words
+        const party = cards[cards.length - 1] ?? 'LIBERAL';
+        const claimed = lie ? flip(party) : party;
+        return JSON.stringify({ thought: lie ? 'I will misreport this.' : 'I will report what I saw.', action: { type: 'claim', party: claimed }, dialogue: `They are ${claimed}.` });
+      }
+      // Legislation lines also mention the enacted card at the end; keep only the cards seen
+      const count = context.includes('PHASE: CLAIM (Chancellor)') ? 2 : 3;
+      const actual = cards.slice(0, count);
+      const claimed = lie ? [flip(actual[0]), ...actual.slice(1)] : actual;
+      return JSON.stringify({ thought: lie ? 'I will misreport the cards.' : 'I will report the cards.', action: { type: 'claim', cards: claimed }, dialogue: `I had ${claimed.join(', ')}.` });
+    }
+
     if (context.includes('PHASE: VETO RESPONSE')) {
       const accept = Math.random() < 0.5;
       return JSON.stringify({
