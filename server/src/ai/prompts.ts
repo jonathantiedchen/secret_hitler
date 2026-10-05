@@ -3,9 +3,9 @@
 import type { Role, GameState, Player, ExecutiveAction } from '../game/types.js';
 import { getExecutiveAction } from '../game/types.js';
 
-// Bump whenever the system prompt wording changes, so games played under
-// different prompts can be told apart in research data.
-export const SYSTEM_PROMPT_VERSION = '2';
+// Bump whenever any prompt wording changes (system or phase prompts), so games
+// played under different prompts can be told apart in research data.
+export const PROMPT_VERSION = '3';
 
 const POWER_NAMES: Record<ExecutiveAction, string> = {
   investigate: 'Investigate Loyalty (President secretly sees one player\'s party membership)',
@@ -143,9 +143,7 @@ You are the President. You must nominate a Chancellor.
 Valid candidates: ${candidateNames.join(', ')}
 
 Respond with your nomination. Your action should be:
-{ "type": "nominate", "target": "<player name>" }
-
-Consider: Who do you trust? Who would help your team's goals?`;
+{ "type": "nominate", "target": "<player name>" }`;
 }
 
 export function getVotingPrompt(game: GameState, nominee: Player): string {
@@ -158,9 +156,7 @@ ${president.name} has nominated ${nominee.name} as Chancellor.
 You must vote JA (yes) or NEIN (no).
 
 Your action should be:
-{ "type": "vote", "vote": "ja" } or { "type": "vote", "vote": "nein" }
-
-Consider: Do you trust this President-Chancellor pairing? What have they done before?`;
+{ "type": "vote", "vote": "ja" } or { "type": "vote", "vote": "nein" }`;
 }
 
 export function getPresidentLegislationPrompt(game: GameState, cards: string[]): string {
@@ -173,9 +169,7 @@ You must discard ONE card and pass the remaining TWO to the Chancellor.
 IMPORTANT: Legislation is done in SILENCE. You cannot speak or communicate with the Chancellor during this phase. Do NOT include dialogue in your response.
 
 Your action should be:
-{ "type": "discard", "index": 0|1|2 }
-
-After the policy is enacted, you may discuss what happened (and you can lie about what you drew).`;
+{ "type": "discard", "index": 0|1|2 }`;
 }
 
 export function getChancellorLegislationPrompt(game: GameState, cards: string[]): string {
@@ -197,9 +191,7 @@ ${vetoNote}
 IMPORTANT: Legislation is done in SILENCE. You cannot speak or communicate during this phase. Do NOT include dialogue in your response${canVeto ? ', unless you propose a veto: then your dialogue is your public request to the President' : ''}.
 
 Your action should be:
-{ "type": "enact", "index": 0|1 }${canVeto ? '\nor, to propose a veto:\n{ "type": "veto" }' : ''}
-
-After the policy is enacted, you may discuss what happened (and you can claim the President gave you different cards).`;
+{ "type": "enact", "index": 0|1 }${canVeto ? '\nor, to propose a veto:\n{ "type": "veto" }' : ''}`;
 }
 
 export function getVetoResponsePrompt(game: GameState): string {
@@ -232,7 +224,7 @@ Valid targets: ${alivePlayers.map((p) => p.name).join(', ')}
 Your action should be:
 { "type": "execute", "target": "<player name>" }
 
-Warning: If you kill Hitler, Liberals win immediately!`;
+If the executed player is Hitler, Liberals win immediately.`;
 }
 
 export function getInvestigationPrompt(game: GameState): string {
@@ -243,7 +235,7 @@ export function getInvestigationPrompt(game: GameState): string {
   return `
 PHASE: INVESTIGATION
 A Fascist policy was enacted, unlocking the investigation power.
-You may look at one player's party membership card (Liberal or Fascist).
+You must look at one player's party membership card (Liberal or Fascist).
 
 Valid targets: ${validTargets.map((p) => p.name).join(', ')}
 
@@ -259,7 +251,7 @@ export function getSpecialElectionPrompt(game: GameState): string {
   return `
 PHASE: SPECIAL ELECTION
 A Fascist policy was enacted, unlocking the special election power.
-You may choose the next President (they will then nominate a Chancellor).
+You must choose the next President (they will then nominate a Chancellor).
 
 Valid targets: ${validTargets.map((p) => p.name).join(', ')}
 

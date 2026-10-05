@@ -48,7 +48,7 @@ export interface GameLog {
   logVersion: string;
   gameId: string;
   status: GameLogStatus;
-  systemPromptVersion: string;
+  promptVersion: string;
   startedAt: string;
   endedAt: string | null;
   config: {
@@ -80,7 +80,7 @@ export function buildGameLog(game: GameLogInput, status: GameLogStatus): GameLog
     logVersion: GAME_LOG_VERSION,
     gameId: history.gameId,
     status,
-    systemPromptVersion: history.systemPromptVersion,
+    promptVersion: history.promptVersion,
     startedAt: new Date(history.startTime).toISOString(),
     endedAt: history.endTime ? new Date(history.endTime).toISOString() : null,
     config: {

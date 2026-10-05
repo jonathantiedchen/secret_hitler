@@ -1,5 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { getSystemPrompt, SYSTEM_PROMPT_VERSION } from '../src/ai/prompts.js';
+import {
+  getSystemPrompt,
+  PROMPT_VERSION,
+  getNominationPrompt,
+  getVotingPrompt,
+  getPresidentLegislationPrompt,
+  getChancellorLegislationPrompt,
+  getVetoResponsePrompt,
+  getExecutionPrompt,
+  getInvestigationPrompt,
+  getSpecialElectionPrompt,
+} from '../src/ai/prompts.js';
 import { makeGame } from './helpers.js';
 
 // makeGame roles: player 0 = Hitler, then fascists, rest liberal
@@ -32,7 +43,7 @@ describe('system prompt: deception and winning', () => {
   });
 
   it('has a version so research data can be split by prompt wording', () => {
-    expect(SYSTEM_PROMPT_VERSION).toMatch(/\S/);
+    expect(PROMPT_VERSION).toMatch(/\S/);
   });
 });
 
@@ -80,5 +91,42 @@ describe('system prompt: rules', () => {
     [/Hitler is executed/i],
   ])('covers %s', (pattern) => {
     expect(promptFor(7, 4)).toMatch(pattern);
+  });
+});
+
+describe('phase prompts: neutral wording', () => {
+  // Every phase prompt, from a 7-player game where all are reachable
+  function allPhasePrompts(): Record<string, string> {
+    const game = makeGame(7, { chancellorIndex: 1, nomineeIndex: 1, fascistPolicies: 5 });
+    return {
+      nomination: getNominationPrompt(game, [1, 2, 3]),
+      voting: getVotingPrompt(game, game.players[1]),
+      president: getPresidentLegislationPrompt(game, ['liberal', 'fascist', 'fascist']),
+      chancellor: getChancellorLegislationPrompt(game, ['liberal', 'fascist']),
+      chancellorAfterRefusal: getChancellorLegislationPrompt({ ...game, vetoRefused: true }, ['liberal', 'fascist']),
+      veto: getVetoResponsePrompt(game),
+      execution: getExecutionPrompt(game),
+      investigation: getInvestigationPrompt(game),
+      specialElection: getSpecialElectionPrompt(game),
+    };
+  }
+
+  it.each(Object.keys(allPhasePrompts()))('%s prompt does not single out lying (the system prompt covers it)', (name) => {
+    expect(allPhasePrompts()[name]).not.toMatch(/\blie\b|lying|claim the President/i);
+  });
+
+  it.each(Object.keys(allPhasePrompts()))('%s prompt does not steer reasoning with "Consider" hints', (name) => {
+    expect(allPhasePrompts()[name]).not.toMatch(/Consider:|do you trust/i);
+  });
+
+  it('execution prompt states the Hitler rule without taking a side', () => {
+    const prompt = allPhasePrompts().execution;
+    expect(prompt).toMatch(/If the executed player is Hitler, Liberals win immediately\./);
+    expect(prompt).not.toMatch(/Warning|!/);
+  });
+
+  it.each(['investigation', 'specialElection'])('%s prompt says the power must be used', (name) => {
+    expect(allPhasePrompts()[name]).toMatch(/You must/);
+    expect(allPhasePrompts()[name]).not.toMatch(/You may/);
   });
 });

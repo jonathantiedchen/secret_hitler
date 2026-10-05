@@ -13,7 +13,7 @@ function input(overrides: Partial<GameLogInput> = {}): GameLogInput {
     settings: { actionDelay: 0, showThoughts: true, temperature: 0.7, maxTokens: 800, costLimit: 1, maxHistoryMessages: 40 },
     history: {
       gameId: 'game-1',
-      systemPromptVersion: '2',
+      promptVersion: '2',
       startTime: Date.UTC(2026, 9, 5, 14, 30, 22),
       endTime: null,
       players: state.players,
@@ -48,7 +48,7 @@ describe('buildGameLog', () => {
 
   it('records the conditions an experiment would vary', () => {
     const log = buildGameLog(input(), 'completed');
-    expect(log.systemPromptVersion).toBe('2');
+    expect(log.promptVersion).toBe('2');
     expect(log.config).toMatchObject({ playerCount: 5, temperature: 0.7, maxTokens: 800, maxHistoryMessages: 40, mockMode: false });
   });
 
