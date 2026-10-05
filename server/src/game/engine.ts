@@ -267,9 +267,13 @@ export function drawCards(game: GameState): GameState {
   };
 }
 
+function isCardIndex(index: number, cardCount: number): boolean {
+  return Number.isInteger(index) && index >= 0 && index < cardCount;
+}
+
 // President discards one card
 export function presidentDiscard(game: GameState, discardIndex: number): GameState {
-  if (game.phase !== 'legislation_president' || game.drawnCards.length !== 3) {
+  if (game.phase !== 'legislation_president' || game.drawnCards.length !== 3 || !isCardIndex(discardIndex, 3)) {
     throw new Error('Invalid president discard');
   }
 
@@ -286,7 +290,7 @@ export function presidentDiscard(game: GameState, discardIndex: number): GameSta
 
 // Chancellor enacts policy
 export function chancellorEnact(game: GameState, enactIndex: number): GameState {
-  if (game.phase !== 'legislation_chancellor' || game.drawnCards.length !== 2) {
+  if (game.phase !== 'legislation_chancellor' || game.drawnCards.length !== 2 || !isCardIndex(enactIndex, 2)) {
     throw new Error('Invalid chancellor enact');
   }
 

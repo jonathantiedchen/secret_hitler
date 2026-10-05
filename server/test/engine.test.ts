@@ -174,6 +174,15 @@ describe('legislative session', () => {
     expect(game.discardPile).toEqual(deck('F', 'F'));
   });
 
+  it.each([3, -1, 1.5, NaN])('president cannot discard card index %s', (index) => {
+    expect(() => presidentDiscard(drawCards(elected()), index)).toThrow(/Invalid president discard/);
+  });
+
+  it.each([2, -1, 0.5, NaN])('chancellor cannot enact card index %s', (index) => {
+    const game = presidentDiscard(drawCards(elected()), 0);
+    expect(() => chancellorEnact(game, index)).toThrow(/Invalid chancellor enact/);
+  });
+
   it('reshuffles at the end of the session when fewer than 3 cards remain', () => {
     let game = drawCards(elected(deck('F', 'L', 'F', 'L', 'L')));
     game = chancellorEnact(presidentDiscard(game, 0), 0);
