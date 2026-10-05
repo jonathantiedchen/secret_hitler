@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useGameStore } from '../stores/gameStore';
+import { SERVER_URL } from '../config';
 
 // Model icon/color mapping
 const modelConfig: Record<string, { icon: string; color: string }> = {
@@ -21,7 +22,6 @@ const getModelConfig = (modelId: string) => {
   return { icon: '🤖', color: '#888888' };
 };
 
-const SERVER_URL = 'http://localhost:3001';
 
 // Store socket reference for step navigation
 let currentSocket: Socket | null = null;
@@ -310,7 +310,7 @@ export function useGameSocket(gameId: string | null) {
     });
 
     // History navigation state
-    socket.on('history_nav', ({ currentIndex, totalSnapshots, isLive, description }) => {
+    socket.on('history_nav', ({ currentIndex, totalSnapshots, description }) => {
       setHistoryNav(currentIndex, totalSnapshots, description);
     });
 

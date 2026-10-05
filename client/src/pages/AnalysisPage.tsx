@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ReplayTimeline } from '../components/analysis/ReplayTimeline';
 import { StatsPanel } from '../components/analysis/StatsPanel';
 import { ReasoningLog } from '../components/analysis/ReasoningLog';
+import { SERVER_URL } from '../config';
 
 interface GameEvent {
   id: string;
@@ -48,7 +49,7 @@ export function AnalysisPage() {
   useEffect(() => {
     if (!gameId) return;
 
-    fetch(`http://localhost:3001/api/games/${gameId}/history`)
+    fetch(`${SERVER_URL}/api/games/${gameId}/history`)
       .then((res) => {
         if (!res.ok) throw new Error('Game not found');
         return res.json();
