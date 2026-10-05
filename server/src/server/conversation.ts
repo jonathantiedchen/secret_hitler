@@ -91,6 +91,7 @@ export async function askPlayer(
       model: response.model,
       usage: response.usage,
       cost: response.cost,
+      costSource: response.costSource,
       latencyMs: Date.now() - call.timestamp,
       ...(response.finishReason && { finishReason: response.finishReason }),
     });

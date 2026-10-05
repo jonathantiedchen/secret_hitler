@@ -18,7 +18,7 @@ function scripted(...replies: Reply[]) {
       if (r === undefined) throw new Error('no more scripted replies');
       if (r instanceof Error) throw r;
       const { content, finishReason } = typeof r === 'string' ? { content: r, finishReason: 'stop' } : r;
-      return { content, finishReason, model: 'fake', usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, cost: 0 };
+      return { content, finishReason, model: 'fake', usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, cost: 0, costSource: 'reported' };
     },
   };
   return { client: client as unknown as LLMClient, sent };

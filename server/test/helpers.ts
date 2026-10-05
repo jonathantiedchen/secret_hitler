@@ -48,7 +48,7 @@ export function fakeClient(reply: Reply | ((model: string) => Reply)): LLMClient
       client.sent.push(messages[messages.length - 1].content);
       const r = typeof reply === 'function' ? reply(model) : reply;
       if (r instanceof Error) throw r;
-      return { content: r, model: 'fake', usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, cost: 0, finishReason: 'stop' };
+      return { content: r, model: 'fake', usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, cost: 0, costSource: 'reported', finishReason: 'stop' };
     },
   };
   return client as unknown as LLMClient & { calls: number; sent: string[] };

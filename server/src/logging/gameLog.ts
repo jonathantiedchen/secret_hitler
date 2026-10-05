@@ -3,7 +3,7 @@
 import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { GameState, GameHistory, GameEvent, Role } from '../game/types.js';
-import type { ChatMessage, LLMResponse } from '../ai/openrouter.js';
+import type { ChatMessage, LLMResponse, CostSource } from '../ai/openrouter.js';
 
 export const GAME_LOG_VERSION = '1';
 
@@ -28,6 +28,7 @@ export interface LLMCallRecord {
   model: string | null;
   usage: LLMResponse['usage'] | null;
   cost: number;
+  costSource?: CostSource;
   latencyMs: number;
   finishReason?: string;
   // The request failed (network, API)

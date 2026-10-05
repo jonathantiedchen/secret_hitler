@@ -13,17 +13,56 @@ export interface LLMResponse {
     completionTokens: number;
     totalTokens: number;
   };
+  // US dollars (OpenRouter credits); see costSource for how it was determined
   cost: number;
+  costSource: CostSource;
   // 'length' means the reply was cut off at the token limit
   finishReason?: string;
+}
+
+// reported: charged amount from OpenRouter; estimated: from the model's listed per-token price;
+// unknown: neither was available (cost counted as 0)
+export type CostSource = 'reported' | 'estimated' | 'unknown';
+
+// USD per token
+export interface ModelPricing {
+  prompt: number;
+  completion: number;
+}
+
+export function extractCost(
+  usage: { prompt_tokens?: number; completion_tokens?: number; cost?: number } | undefined,
+  pricing: ModelPricing | undefined
+): { cost: number; costSource: CostSource } {
+  if (typeof usage?.cost === 'number') return { cost: usage.cost, costSource: 'reported' };
+  if (pricing) {
+    const cost = (usage?.prompt_tokens ?? 0) * pricing.prompt + (usage?.completion_tokens ?? 0) * pricing.completion;
+    return { cost, costSource: 'estimated' };
+  }
+  return { cost: 0, costSource: 'unknown' };
 }
 
 export class OpenRouterClient {
   private apiKey: string;
   private baseUrl = 'https://openrouter.ai/api/v1';
 
+  // Listed prices, fetched once and only if a response lacks a reported cost
+  private pricing: Promise<Map<string, ModelPricing>> | null = null;
+
   constructor(apiKey: string) {
     this.apiKey = apiKey;
+  }
+
+  private async getPricing(): Promise<Map<string, ModelPricing>> {
+    this.pricing ??= fetch(`${this.baseUrl}/models`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
+      .then((body: { data: Array<{ id: string; pricing?: { prompt?: string; completion?: string } }> }) =>
+        new Map(body.data.map((m) => [m.id, { prompt: Number(m.pricing?.prompt ?? NaN), completion: Number(m.pricing?.completion ?? NaN) }])))
+      .catch((error) => {
+        console.warn('[OpenRouter] Could not load model prices:', error);
+        return new Map<string, ModelPricing>();
+      });
+    return this.pricing;
   }
 
   async chat(
@@ -73,11 +112,16 @@ export class OpenRouterClient {
         throw new Error('OpenRouter returned empty response');
       }
 
-      // Calculate cost from usage
-      const promptCost = (data.usage?.prompt_tokens || 0) * 0.000001;
-      const completionCost = (data.usage?.completion_tokens || 0) * 0.000002;
+      // OpenRouter reports the charged cost; otherwise use the model's listed price
+      let { cost, costSource } = extractCost(data.usage, undefined);
+      if (costSource !== 'reported') {
+        const prices = await this.getPricing();
+        const listed = [prices.get(model), prices.get(data.model)].find((p) => p && Number.isFinite(p.prompt) && Number.isFinite(p.completion));
+        ({ cost, costSource } = extractCost(data.usage, listed));
+        console.warn(`[OpenRouter] No reported cost for ${model}; ${costSource === 'estimated' ? 'estimated from listed prices' : 'cost unknown'}`);
+      }
 
-      console.log(`[OpenRouter] Success: ${data.usage?.total_tokens || 0} tokens, $${(promptCost + completionCost).toFixed(6)}`);
+      console.log(`[OpenRouter] Success: ${data.usage?.total_tokens || 0} tokens, $${cost.toFixed(6)} (${costSource})`);
 
       return {
         content: choice.message.content,
@@ -87,7 +131,8 @@ export class OpenRouterClient {
           completionTokens: data.usage?.completion_tokens || 0,
           totalTokens: data.usage?.total_tokens || 0,
         },
-        cost: promptCost + completionCost,
+        cost,
+        costSource,
         finishReason: choice.finish_reason,
       };
     } catch (error) {
@@ -130,6 +175,7 @@ export class MockLLMClient {
         totalTokens: 150,
       },
       cost: 0,
+      costSource: 'reported',
     };
   }
 
