@@ -2,6 +2,7 @@
 
 import type { Role, GameState, Player, ExecutiveAction, PolicyCard } from '../game/types.js';
 import { getExecutiveAction } from '../game/types.js';
+import { getValidTargets } from '../game/engine.js';
 
 // Bump whenever any prompt wording changes (system or phase prompts), so games
 // played under different prompts can be told apart in research data.
@@ -212,7 +213,7 @@ Your action should be:
 }
 
 export function getExecutionPrompt(game: GameState): string {
-  const alivePlayers = game.players.filter((p, i) => p.isAlive && i !== game.presidentIndex);
+  const alivePlayers = getValidTargets(game, 'execution').map((i) => game.players[i]);
 
   return `
 PHASE: EXECUTION
@@ -228,9 +229,7 @@ If the executed player is Hitler, Liberals win immediately.`;
 }
 
 export function getInvestigationPrompt(game: GameState): string {
-  const validTargets = game.players.filter(
-    (p, i) => p.isAlive && i !== game.presidentIndex && !p.wasInvestigated
-  );
+  const validTargets = getValidTargets(game, 'investigate').map((i) => game.players[i]);
 
   return `
 PHASE: INVESTIGATION
@@ -246,7 +245,7 @@ Note: You will see their PARTY (Liberal or Fascist), not their exact role. Hitle
 }
 
 export function getSpecialElectionPrompt(game: GameState): string {
-  const validTargets = game.players.filter((p, i) => p.isAlive && i !== game.presidentIndex);
+  const validTargets = getValidTargets(game, 'special_election').map((i) => game.players[i]);
 
   return `
 PHASE: SPECIAL ELECTION

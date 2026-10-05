@@ -5,7 +5,7 @@ import { getLegislationClaimPrompt } from '../../ai/prompts.js';
 import { evaluateClaim } from '../../game/claims.js';
 import type { GameRecord } from '../gameRecord.js';
 import { createEvent } from '../state.js';
-import { askPlayer, publishEvent, type LLMClient, type Emit, type TrackCost } from '../conversation.js';
+import { askForDecision, recordDialogue, publishEvent, type LLMClient, type Emit, type TrackCost } from '../conversation.js';
 
 export type ClaimType = 'president_legislation' | 'chancellor_legislation' | 'investigation' | 'peek';
 
@@ -26,51 +26,23 @@ export async function askClaim(
     announce: (claimed: string[]) => string;
   }
 ) {
-  createEvent(game, 'thinking', { playerId: player.id, playerName: player.name });
-  emit('thinking', { playerId: player.id, playerName: player.name });
+  const parsed = await askForDecision(game, llmClient, emit, trackCost, player, claim.prompt, `claim_${claim.claimType}`);
 
   let claimed: string[] | null = null;
-  let malformed = false;
-  try {
-    const { response, prompt } = await askPlayer(game, llmClient, player, claim.prompt);
-    trackCost(response.cost);
-    emit('debug', {
-      playerId: player.id,
-      playerName: player.name,
-      model: player.model,
-      phase: `claim_${claim.claimType}`,
-      prompt,
-      response: response.content,
-    });
-
-    const parsed = JSON.parse(response.content);
-    const raw = parsed.action?.[claim.field];
-    const valid = (x: unknown) => typeof x === 'string' && ['LIBERAL', 'FASCIST'].includes(x.toUpperCase());
-    if (raw === null || raw === undefined) {
-      claimed = null;
-    } else if (claim.field === 'party' && valid(raw)) {
-      claimed = [raw.toUpperCase()];
-    } else if (claim.field === 'cards' && Array.isArray(raw) && raw.every(valid)) {
-      claimed = raw.map((c: string) => c.toUpperCase());
-    } else {
-      malformed = true;
-    }
-
-    if (parsed.thought) {
-      createEvent(game, 'thought', { playerId: player.id, playerName: player.name, content: parsed.thought });
-      if (game.settings.showThoughts) {
-        emit('thought', { playerId: player.id, playerName: player.name, content: parsed.thought });
-      }
-    }
-    if (parsed.dialogue) {
-      createEvent(game, 'dialogue', { playerId: player.id, playerName: player.name, content: parsed.dialogue });
-      publishEvent(game, `${player.name}: "${parsed.dialogue}"`, player.id);
-      emit('dialogue', { playerId: player.id, playerName: player.name, content: parsed.dialogue });
-    }
-  } catch (e) {
-    console.error(`Claim error for ${player.name}:`, e);
+  let malformed = parsed === null;
+  const raw = parsed?.action?.[claim.field];
+  const valid = (x: unknown): x is string => typeof x === 'string' && ['LIBERAL', 'FASCIST'].includes(x.toUpperCase());
+  if (raw === null || raw === undefined) {
+    claimed = null;
+  } else if (claim.field === 'party' && valid(raw)) {
+    claimed = [raw.toUpperCase()];
+  } else if (claim.field === 'cards' && Array.isArray(raw) && raw.every(valid)) {
+    claimed = raw.map((c: string) => c.toUpperCase());
+  } else {
     malformed = true;
   }
+
+  if (parsed?.dialogue) recordDialogue(game, emit, player, parsed.dialogue);
 
   const announcement = claimed
     ? `${player.name} claims ${claim.announce(claimed)}.`

@@ -4,7 +4,8 @@ import type { GameState, Player } from '../game/types.js';
 import type { ChatMessage, OpenRouterClient, MockLLMClient } from '../ai/openrouter.js';
 import { buildStateHeader } from '../ai/prompts.js';
 import type { LLMCallRecord } from '../logging/gameLog.js';
-import type { GameRecord } from './gameRecord.js';
+import type { GameRecord, PublicEvent } from './gameRecord.js';
+import { createEvent } from './state.js';
 
 export type LLMClient = OpenRouterClient | MockLLMClient;
 export type Emit = (event: string, data: unknown) => void;
@@ -102,4 +103,68 @@ export async function askPlayer(
     history.pop();
     throw error;
   }
+}
+
+export interface PlayerResponse {
+  thought?: string;
+  dialogue?: string;
+  action?: Record<string, unknown>;
+}
+
+// Ask a player for a decision and record their private thought.
+// Returns the parsed response, or null if the request failed or the reply wasn't valid JSON.
+export async function askForDecision(
+  game: GameRecord,
+  llmClient: LLMClient,
+  emit: Emit,
+  trackCost: TrackCost,
+  player: Player,
+  prompt: string,
+  phase: string,
+  debugExtra: Record<string, unknown> = {}
+): Promise<PlayerResponse | null> {
+  createEvent(game, 'thinking', { playerId: player.id, playerName: player.name });
+  emit('thinking', { playerId: player.id, playerName: player.name });
+
+  let parsed: PlayerResponse;
+  try {
+    const { response, prompt: messages } = await askPlayer(game, llmClient, player, prompt);
+    trackCost(response.cost);
+    emit('debug', {
+      playerId: player.id,
+      playerName: player.name,
+      model: player.model,
+      phase,
+      ...debugExtra,
+      prompt: messages,
+      response: response.content,
+    });
+    parsed = JSON.parse(response.content);
+  } catch (error) {
+    console.error(`No usable response from ${player.name} (${player.model}) in ${phase}:`, error);
+    return null;
+  }
+
+  if (parsed.thought) {
+    createEvent(game, 'thought', { playerId: player.id, playerName: player.name, content: parsed.thought });
+    if (game.settings.showThoughts) {
+      emit('thought', { playerId: player.id, playerName: player.name, content: parsed.thought });
+    }
+  }
+  return parsed;
+}
+
+// Record what a player said out loud. Public events go to `queue` when given (votes hold
+// remarks until everyone has voted), otherwise straight to the public log.
+export function recordDialogue(game: GameRecord, emit: Emit, player: Player, content: string, queue?: PublicEvent[]) {
+  createEvent(game, 'dialogue', { playerId: player.id, playerName: player.name, content });
+  const event = { content: `${player.name}: "${content}"`, authorId: player.id };
+  if (queue) queue.push(event);
+  else publishEvent(game, event.content, event.authorId);
+  emit('dialogue', { playerId: player.id, playerName: player.name, content });
+}
+
+// A random element: fallback choices are random so they don't favour any seat
+export function pickRandom<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
 }

@@ -1,58 +1,11 @@
 // Legislative session: President discards, Chancellor enacts or proposes a veto
 
 import { drawCards, presidentDiscard, chancellorEnact, proposeVeto, respondToVeto, isVetoUnlocked } from '../../game/engine.js';
-import type { Player, PolicyCard } from '../../game/types.js';
+import type { PolicyCard } from '../../game/types.js';
 import { getPresidentLegislationPrompt, getChancellorLegislationPrompt, getVetoResponsePrompt } from '../../ai/prompts.js';
 import type { GameRecord } from '../gameRecord.js';
 import { createEvent, createSnapshot } from '../state.js';
-import { askPlayer, publishEvent, tellPrivately, formatTracks, type LLMClient, type Emit, type TrackCost } from '../conversation.js';
-
-interface PlayerResponse {
-  thought?: string;
-  dialogue?: string;
-  action?: Record<string, unknown>;
-}
-
-// Ask a player for their legislative decision and record their private thought.
-// Returns the parsed response, or null if the request failed or the reply wasn't valid JSON.
-async function askLegislator(
-  game: GameRecord,
-  llmClient: LLMClient,
-  emit: Emit,
-  trackCost: TrackCost,
-  player: Player,
-  prompt: string,
-  phase: string
-): Promise<PlayerResponse | null> {
-  createEvent(game, 'thinking', { playerId: player.id, playerName: player.name });
-  emit('thinking', { playerId: player.id, playerName: player.name });
-
-  let parsed: PlayerResponse;
-  try {
-    const { response, prompt: messages } = await askPlayer(game, llmClient, player, prompt);
-    trackCost(response.cost);
-    emit('debug', {
-      playerId: player.id,
-      playerName: player.name,
-      model: player.model,
-      phase,
-      prompt: messages,
-      response: response.content,
-    });
-    parsed = JSON.parse(response.content);
-  } catch (error) {
-    console.error(`No usable response from ${player.name} (${player.model}) in ${phase}:`, error);
-    return null;
-  }
-
-  if (parsed.thought) {
-    createEvent(game, 'thought', { playerId: player.id, playerName: player.name, content: parsed.thought });
-    if (game.settings.showThoughts) {
-      emit('thought', { playerId: player.id, playerName: player.name, content: parsed.thought });
-    }
-  }
-  return parsed;
-}
+import { askForDecision, recordDialogue, publishEvent, tellPrivately, formatTracks, type LLMClient, type Emit, type TrackCost } from '../conversation.js';
 
 // The card index a player chose, or null if it isn't a valid index (the caller falls back to card 0)
 function cardIndex(raw: unknown, cardCount: number): number | null {
@@ -91,7 +44,7 @@ export async function handlePresidentLegislation(
   });
   emit('history_nav', { currentIndex: null, totalSnapshots: game.snapshots.length, isLive: true });
 
-  const parsed = await askLegislator(game, llmClient, emit, trackCost, president,
+  const parsed = await askForDecision(game, llmClient, emit, trackCost, president,
     getPresidentLegislationPrompt(game.state, cards), 'legislation_president');
   // NOTE: No dialogue during legislation - it's done in silence per rules
 
@@ -149,7 +102,7 @@ export async function handleChancellorLegislation(
     emit('history_nav', { currentIndex: null, totalSnapshots: game.snapshots.length, isLive: true });
   }
 
-  const parsed = await askLegislator(game, llmClient, emit, trackCost, chancellor,
+  const parsed = await askForDecision(game, llmClient, emit, trackCost, chancellor,
     getChancellorLegislationPrompt(game.state, cards), 'legislation_chancellor');
 
   // Veto proposal: public request to the President instead of enacting
@@ -206,16 +159,12 @@ export async function handleVetoResponse(
   const president = game.state.players[game.state.presidentIndex];
   const cards = game.state.drawnCards;
 
-  const parsed = await askLegislator(game, llmClient, emit, trackCost, president,
+  const parsed = await askForDecision(game, llmClient, emit, trackCost, president,
     getVetoResponsePrompt(game.state), 'veto_proposed');
 
   // Default to refusing: the agenda stands unless the President clearly agrees
   const accept = parsed?.action?.accept === true;
-  if (parsed?.dialogue) {
-    createEvent(game, 'dialogue', { playerId: president.id, playerName: president.name, content: parsed.dialogue });
-    publishEvent(game, `${president.name}: "${parsed.dialogue}"`, president.id);
-    emit('dialogue', { playerId: president.id, playerName: president.name, content: parsed.dialogue });
-  }
+  if (parsed?.dialogue) recordDialogue(game, emit, president, parsed.dialogue);
 
   const before = game.state;
   game.state = respondToVeto(game.state, accept);

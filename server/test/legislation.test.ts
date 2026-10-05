@@ -1,18 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createGameRecord, type GameRecord } from '../src/server/gameRecord.js';
 import { handlePresidentLegislation, handleChancellorLegislation } from '../src/server/phases/legislation.js';
-import type { LLMClient } from '../src/server/conversation.js';
-import { deck } from './helpers.js';
-
-// An LLM client that answers with a fixed reply, or fails
-function fakeClient(reply: string | Error): LLMClient {
-  return {
-    chat: async () => {
-      if (reply instanceof Error) throw reply;
-      return { content: reply, model: 'fake', usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, cost: 0 };
-    },
-  } as unknown as LLMClient;
-}
+import { deck, fakeClient } from './helpers.js';
 
 const noop = () => {};
 

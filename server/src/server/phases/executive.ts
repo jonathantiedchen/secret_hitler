@@ -1,11 +1,11 @@
 // Presidential powers: investigate, special election, peek, execution
 
-import { executePlayer, investigatePlayer, specialElection, finishPolicyEnacted, peekCards } from '../../game/engine.js';
+import { executePlayer, investigatePlayer, specialElection, finishPolicyEnacted, peekCards, getValidTargets } from '../../game/engine.js';
 import { getExecutiveAction } from '../../game/types.js';
 import { getExecutionPrompt, getInvestigationPrompt, getSpecialElectionPrompt, getInvestigationClaimPrompt, getPeekClaimPrompt } from '../../ai/prompts.js';
 import type { GameRecord } from '../gameRecord.js';
 import { createEvent } from '../state.js';
-import { askPlayer, publishEvent, tellPrivately, type LLMClient, type Emit, type TrackCost } from '../conversation.js';
+import { askForDecision, recordDialogue, publishEvent, tellPrivately, pickRandom, type LLMClient, type Emit, type TrackCost } from '../conversation.js';
 import { askClaim } from './claims.js';
 
 export async function handleExecutiveAction(
@@ -55,116 +55,74 @@ export async function handleExecutiveAction(
       return;
   }
 
-  createEvent(game, 'thinking', { playerId: president.id, playerName: president.name });
-  emit('thinking', { playerId: president.id, playerName: president.name });
+  const parsed = await askForDecision(game, llmClient, emit, trackCost, president, prompt, 'executive_action', { action });
+  if (parsed?.dialogue) recordDialogue(game, emit, president, parsed.dialogue);
 
-  const { response, prompt: messages } = await askPlayer(game, llmClient, president, prompt);
+  // Powers are mandatory: an unknown or illegal target falls back to a random legal one
+  const validTargets = getValidTargets(game.state, action);
+  const targetName = parsed?.action?.target;
+  const chosen = typeof targetName === 'string'
+    ? game.state.players.findIndex((p) => p.name.toLowerCase() === targetName.toLowerCase())
+    : -1;
+  const fallback = !validTargets.includes(chosen);
+  const targetIndex = fallback ? pickRandom(validTargets) : chosen;
+  const target = game.state.players[targetIndex];
+  const flag = fallback ? { fallback: true } : {};
+  const tellFallback = (did: string) => {
+    if (fallback) tellPrivately(game, president.id, `Your response could not be used, so a random valid target was chosen for you: you ${did}.`);
+  };
 
-  // Track cost
-  trackCost(response.cost);
-
-  // Emit debug info
-  emit('debug', {
-    playerId: president.id,
-    playerName: president.name,
-    model: president.model,
-    phase: 'executive_action',
-    action,
-    prompt: messages,
-    response: response.content,
-  });
-
-  try {
-    const parsed = JSON.parse(response.content);
-
-    if (parsed.thought) {
-      createEvent(game, 'thought', {
-        playerId: president.id,
-        playerName: president.name,
-        content: parsed.thought,
+  switch (action) {
+    case 'execution':
+      game.state = executePlayer(game.state, targetIndex);
+      tellFallback(`executed ${target.name}`);
+      createEvent(game, 'execution', {
+        presidentId: president.id,
+        targetId: target.id,
+        targetName: target.name,
+        targetRole: target.role,
+        ...flag,
       });
-      if (game.settings.showThoughts) {
-        emit('thought', {
-          playerId: president.id,
-          playerName: president.name,
-          content: parsed.thought,
-        });
-      }
+      publishEvent(game, `President ${president.name} executed ${target.name}.`);
+      emit('execution', { target: target.name });
+      break;
+
+    case 'investigate': {
+      const result = investigatePlayer(game.state, targetIndex);
+      game.state = result.game;
+      tellFallback(`investigated ${target.name}`);
+      createEvent(game, 'investigation', {
+        presidentId: president.id,
+        targetId: target.id,
+        targetName: target.name,
+        revealedParty: result.party,
+        ...flag,
+      });
+      publishEvent(game, `President ${president.name} investigated ${target.name}'s party membership.`);
+      tellPrivately(game, president.id, `Investigation result: ${target.name} is a ${result.party.toUpperCase()}.`);
+      await askClaim(game, llmClient, emit, trackCost, president, {
+        claimType: 'investigation',
+        prompt: getInvestigationClaimPrompt(target.name, result.party),
+        field: 'party',
+        actual: [result.party],
+        targetId: target.id,
+        announce: (claimed) => `${target.name} is a ${claimed[0]}`,
+      });
+      emit('investigation', { target: target.name, party: result.party });
+      break;
     }
 
-    if (parsed.dialogue) {
-      createEvent(game, 'dialogue', {
-        playerId: president.id,
-        playerName: president.name,
-        content: parsed.dialogue,
+    case 'special_election':
+      game.state = specialElection(game.state, targetIndex);
+      tellFallback(`chose ${target.name} as the next President`);
+      createEvent(game, 'special_election', {
+        presidentId: president.id,
+        targetId: target.id,
+        targetName: target.name,
+        ...flag,
       });
-      publishEvent(game, `${president.name}: "${parsed.dialogue}"`, president.id);
-      emit('dialogue', {
-        playerId: president.id,
-        playerName: president.name,
-        content: parsed.dialogue,
-      });
-    }
-
-    const targetName = parsed.action?.target;
-    const targetIndex = game.state.players.findIndex(
-      (p) => p.name.toLowerCase() === targetName?.toLowerCase()
-    );
-
-    if (targetIndex >= 0) {
-      switch (action) {
-        case 'execution':
-          game.state = executePlayer(game.state, targetIndex);
-          createEvent(game, 'execution', {
-            presidentId: president.id,
-            targetId: game.state.players[targetIndex].id,
-            targetName: game.state.players[targetIndex].name,
-            targetRole: game.state.players[targetIndex].role,
-          });
-          publishEvent(game, `President ${president.name} executed ${game.state.players[targetIndex].name}.`);
-          emit('execution', { target: game.state.players[targetIndex].name });
-          break;
-        case 'investigate':
-          const result = investigatePlayer(game.state, targetIndex);
-          game.state = result.game;
-          createEvent(game, 'investigation', {
-            presidentId: president.id,
-            targetId: game.state.players[targetIndex].id,
-            targetName: game.state.players[targetIndex].name,
-            revealedParty: result.party,
-          });
-          publishEvent(game, `President ${president.name} investigated ${game.state.players[targetIndex].name}'s party membership.`);
-          tellPrivately(game, president.id, `Investigation result: ${game.state.players[targetIndex].name} is a ${result.party.toUpperCase()}.`);
-          {
-            const target = game.state.players[targetIndex];
-            await askClaim(game, llmClient, emit, trackCost, president, {
-              claimType: 'investigation',
-              prompt: getInvestigationClaimPrompt(target.name, result.party),
-              field: 'party',
-              actual: [result.party],
-              targetId: target.id,
-              announce: (claimed) => `${target.name} is a ${claimed[0]}`,
-            });
-          }
-          emit('investigation', {
-            target: game.state.players[targetIndex].name,
-            party: result.party,
-          });
-          break;
-        case 'special_election':
-          game.state = specialElection(game.state, targetIndex);
-          createEvent(game, 'special_election', {
-            presidentId: president.id,
-            targetId: game.state.players[targetIndex].id,
-            targetName: game.state.players[targetIndex].name,
-          });
-          publishEvent(game, `President ${president.name} called a special election: ${game.state.players[targetIndex].name} is the next President.`);
-          emit('special_election', { target: game.state.players[targetIndex].name });
-          break;
-      }
-    }
-  } catch (e) {
-    console.error('Executive action error:', e);
-    game.state = finishPolicyEnacted(game.state);
+      publishEvent(game, `President ${president.name} called a special election: ${target.name} is the next President.`);
+      emit('special_election', { target: target.name });
+      break;
   }
 }

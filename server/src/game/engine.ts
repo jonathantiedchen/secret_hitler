@@ -408,6 +408,15 @@ function enactPolicy(game: GameState, policy: PolicyCard, grantsPower = true): G
   return newGame;
 }
 
+// Players the President may target with a power (indexes into game.players)
+export function getValidTargets(game: GameState, action: ExecutiveAction): number[] {
+  if (action === 'peek') return [];
+  return game.players
+    .map((p, i) => ({ p, i }))
+    .filter(({ p, i }) => p.isAlive && i !== game.presidentIndex && !(action === 'investigate' && p.wasInvestigated))
+    .map(({ i }) => i);
+}
+
 // Execute a player
 export function executePlayer(game: GameState, targetIndex: number): GameState {
   const target = game.players[targetIndex];

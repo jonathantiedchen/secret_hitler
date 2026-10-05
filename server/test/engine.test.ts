@@ -16,6 +16,7 @@ import {
   finishPolicyEnacted,
   proposeVeto,
   respondToVeto,
+  getValidTargets,
 } from '../src/game/engine.js';
 import { getExecutiveAction, getRoleDistribution } from '../src/game/types.js';
 import type { GameState, Vote } from '../src/game/types.js';
@@ -421,5 +422,32 @@ describe('veto', () => {
 
   it('cannot respond to a veto that was not proposed', () => {
     expect(() => respondToVeto(chancellorHolding(), true)).toThrow(/No veto/);
+  });
+});
+
+describe('valid targets for presidential powers', () => {
+  // President 2; player 4 dead; player 5 already investigated
+  function board() {
+    const base = makeGame(7, { presidentIndex: 2, phase: 'executive_action' });
+    return {
+      ...base,
+      players: base.players.map((p, i) => (i === 4 ? { ...p, isAlive: false } : i === 5 ? { ...p, wasInvestigated: true } : p)),
+    };
+  }
+
+  it('execution: any living player except the president', () => {
+    expect(getValidTargets(board(), 'execution')).toEqual([0, 1, 3, 5, 6]);
+  });
+
+  it('special election: any living player except the president', () => {
+    expect(getValidTargets(board(), 'special_election')).toEqual([0, 1, 3, 5, 6]);
+  });
+
+  it('investigation: living, not the president, not investigated before', () => {
+    expect(getValidTargets(board(), 'investigate')).toEqual([0, 1, 3, 6]);
+  });
+
+  it('peek has no target', () => {
+    expect(getValidTargets(board(), 'peek')).toEqual([]);
   });
 });
