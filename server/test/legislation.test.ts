@@ -7,7 +7,10 @@ import { deck, fakeClient, inOrder } from './helpers.js';
 const noop = () => {};
 
 // Rejected replies are logged to the console on purpose; keep test output clean
-beforeEach(() => { vi.spyOn(console, 'error').mockImplementation(() => {}); });
+beforeEach(() => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+});
 afterEach(() => { vi.restoreAllMocks(); });
 
 // President P0 and Chancellor P1 elected; the deck is drawn in the given order

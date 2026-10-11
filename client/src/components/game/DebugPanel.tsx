@@ -66,12 +66,7 @@ export function DebugPanel({ entries, selectedIndex, onClearSelection }: DebugPa
 
   if (entries.length === 0) {
     return (
-      <div className="bg-neutral-50 border-l border-neutral-200 h-screen flex flex-col">
-        <div className="px-4 py-3.5 border-b border-neutral-200 flex-shrink-0">
-          <div className="text-neutral-500 text-[11px] uppercase tracking-wider font-medium">
-            🔧 Debug Console
-          </div>
-        </div>
+      <div className="h-full flex flex-col">
         <div className="flex-1 flex items-center justify-center text-neutral-400 text-sm">
           Waiting for AI calls...
         </div>
@@ -86,14 +81,7 @@ export function DebugPanel({ entries, selectedIndex, onClearSelection }: DebugPa
   const isShowingSelected = selectedIndex !== null && selectedIndex !== undefined && entries[selectedIndex];
 
   return (
-    <div className="bg-neutral-50 border-l border-neutral-200 h-screen flex flex-col">
-      {/* Header */}
-      <div className="px-4 py-3.5 border-b border-neutral-200 flex-shrink-0">
-        <div className="text-neutral-500 text-[11px] uppercase tracking-wider font-medium">
-          🔧 Debug Console
-        </div>
-      </div>
-
+    <div className="h-full flex flex-col">
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-3 min-h-0">
         {/* Entry Header */}

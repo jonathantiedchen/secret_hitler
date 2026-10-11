@@ -8,6 +8,7 @@ import { buildGameLog, writeGameLog, type GameLogStatus } from '../logging/gameL
 import { games, type GameRecord } from './gameRecord.js';
 import { createEvent, createSnapshot, sanitizeGameState } from './state.js';
 import { DecisionFailedError } from './conversation.js';
+import { trace } from './trace.js';
 import { handleNomination } from './phases/nomination.js';
 import { handleVoting } from './phases/voting.js';
 import { handlePresidentLegislation, handleChancellorLegislation, handleVetoResponse } from './phases/legislation.js';
@@ -49,6 +50,7 @@ export async function runGameLoop(gameId: string, io: Server) {
     // Check if limit reached
     if (game.totalCost >= game.settings.costLimit && !game.isPaused) {
       game.isPaused = true;
+      trace(game, emit, 'warn', 'cost_limit', `Cost limit of $${game.settings.costLimit.toFixed(2)} reached ($${game.totalCost.toFixed(4)} spent); game paused`);
       emit('paused', { isPaused: true });
       emit('cost_limit_reached', {
         cost: game.totalCost,
@@ -57,6 +59,8 @@ export async function runGameLoop(gameId: string, io: Server) {
       });
     }
   };
+
+  trace(game, emit, 'info', 'start', game.apiKey ? 'Game started; players are called through OpenRouter' : 'Game started in mock mode (no API key)');
 
   // Record game start
   createEvent(game, 'game_start', {
@@ -80,12 +84,23 @@ export async function runGameLoop(gameId: string, io: Server) {
       }
 
       // Wait while paused
-      while (game.isPaused && game.isRunning) {
-        await delay(500);
+      if (game.isPaused && game.isRunning) {
+        trace(game, emit, 'info', 'pause', 'Game paused; waiting for resume');
+        while (game.isPaused && game.isRunning) {
+          await delay(500);
+        }
+        if (game.isRunning) trace(game, emit, 'info', 'resume', 'Game resumed');
       }
       if (!game.isRunning) break;
 
       emit('state', sanitizeGameState(game.state));
+      const { players, presidentIndex, chancellorIndex, nomineeIndex } = game.state;
+      const roles = [
+        `President ${players[presidentIndex].name}`,
+        chancellorIndex !== null && `Chancellor ${players[chancellorIndex].name}`,
+        game.state.phase === 'voting' && nomineeIndex !== null && `nominee ${players[nomineeIndex].name}`,
+      ].filter(Boolean).join(', ');
+      trace(game, emit, 'info', 'phase', `Round ${game.state.round}: ${game.state.phase} (${roles})`);
 
       switch (game.state.phase) {
         case 'nomination': {
@@ -167,6 +182,11 @@ export async function runGameLoop(gameId: string, io: Server) {
     const logPath = saveGameLog(game, game.state.phase === 'game_over' ? 'completed' : 'aborted');
     if (logPath) console.log(`📝 Game log written to ${logPath}`);
 
+    if (game.state.phase === 'game_over') {
+      trace(game, emit, 'info', 'end', `Game over: ${game.state.winner} team wins (${game.state.winCondition})`);
+    } else {
+      trace(game, emit, 'warn', 'end', 'Game was stopped before it ended');
+    }
     emit('state', sanitizeGameState(game.state));
     emit('game_over', {
       winner: game.state.winner,
@@ -176,14 +196,20 @@ export async function runGameLoop(gameId: string, io: Server) {
     // No move is ever made up for a player: if they can't decide, the game ends here
     console.error('Game aborted:', error);
     game.history.endTime = Date.now();
+    let message: string;
+    let detail: string;
     if (error instanceof DecisionFailedError) {
       const player = game.state.players.find((p) => p.id === error.playerId)!;
       game.abortReason = { playerId: player.id, model: player.model, phase: error.phase, reasons: error.reasons };
-      emit('error', { message: `Game aborted: ${player.name} (${player.model}) gave no usable response in ${error.phase} after several attempts. Last problem: ${error.reasons.at(-1)}` });
+      message = `Game aborted: ${player.name} (${player.model}) gave no usable response in ${error.phase} after several attempts. Last problem: ${error.reasons.at(-1)}`;
+      detail = error.reasons.map((reason, i) => `${i + 1}. ${reason}`).join('\n');
     } else {
       game.abortReason = { message: error instanceof Error ? error.message : String(error) };
-      emit('error', { message: 'Game aborted after an unexpected error' });
+      message = `Game aborted after an unexpected error: ${game.abortReason.message}`;
+      detail = error instanceof Error && error.stack ? error.stack : String(error);
     }
+    trace(game, emit, 'error', 'abort', message, detail);
+    emit('error', { message });
     saveGameLog(game, 'aborted');
     game.isRunning = false;
   }
