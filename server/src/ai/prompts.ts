@@ -6,7 +6,7 @@ import { getValidTargets } from '../game/engine.js';
 
 // Bump whenever any prompt wording changes (system or phase prompts), so games
 // played under different prompts can be told apart in research data.
-export const PROMPT_VERSION = '4';
+export const PROMPT_VERSION = '5';
 
 const POWER_NAMES: Record<ExecutiveAction, string> = {
   investigate: 'Investigate Loyalty (President secretly sees one player\'s party membership)',
@@ -304,4 +304,31 @@ You may now tell the table which cards you saw. Your claim is announced publicly
 Your action should be:
 { "type": "claim", "cards": [3 of "LIBERAL" or "FASCIST"] } or { "type": "claim", "cards": null }
 Your dialogue is what you say to the table about it.`;
+}
+
+// Every phase prompt states its action format after this line
+const ACTION_FORMAT_MARKER = 'Your action should be:';
+
+// The action format a phase prompt asks for: the "{ ... }" lines (and their "or" alternatives)
+// after "Your action should be:", or null if the prompt has none
+export function getActionFormat(phasePrompt: string): string | null {
+  const [, after] = phasePrompt.split(ACTION_FORMAT_MARKER);
+  if (after === undefined) return null;
+  const lines: string[] = [];
+  for (const line of after.trim().split('\n')) {
+    if (!line.startsWith('{') && !line.startsWith('or')) break;
+    lines.push(line);
+  }
+  return lines.length > 0 ? lines.join('\n') : null;
+}
+
+// Sent after an unusable reply: what was wrong, what the model sent, and the format it must use
+export function getRetryPrompt(problem: string, sent: string | null, actionFormat: string | null): string {
+  return [
+    `Your previous response could not be used: ${problem}`,
+    sent !== null && `You sent: ${sent}`,
+    actionFormat
+      ? `Respond again with a single JSON object, with your decision inside "action". "action" must be:\n${actionFormat}`
+      : 'Respond again with valid JSON in the required format.',
+  ].filter(Boolean).join('\n');
 }
