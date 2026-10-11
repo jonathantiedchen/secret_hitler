@@ -6,6 +6,7 @@ import { buildStateHeader } from '../ai/prompts.js';
 import type { LLMCallRecord } from '../logging/gameLog.js';
 import type { GameRecord, PublicEvent } from './gameRecord.js';
 import { createEvent } from './state.js';
+import { trace } from './trace.js';
 
 export type LLMClient = OpenRouterClient | MockLLMClient;
 export type Emit = (event: string, data: unknown) => void;
@@ -151,22 +152,31 @@ export async function askForDecision<T>(
   let requestFailures = 0;
 
   for (let attempt = 1; attempt <= MAX_REPLY_ATTEMPTS; ) {
+    const attemptNote = attempt > 1 ? `, attempt ${attempt}/${MAX_REPLY_ATTEMPTS}` : '';
+    trace(game, emit, 'info', 'request', `Asking ${player.name} (${player.model}) for ${phase}${attemptNote}; waiting for the reply`);
+    const requestStart = Date.now();
+    const elapsed = () => `${((Date.now() - requestStart) / 1000).toFixed(1)}s`;
+
     let reply;
     try {
       reply = await askPlayer(game, llmClient, player, message, !isRetryFeedback);
     } catch (error) {
       requestFailures++;
       const reason = `request failed: ${error instanceof Error ? error.message : String(error)}`;
-      console.error(`${player.name} (${player.model}) in ${phase}: ${reason}`);
+      const failure = `Request for ${player.name} failed after ${elapsed()} (${requestFailures}/${MAX_REQUEST_ATTEMPTS})`;
       if (requestFailures >= MAX_REQUEST_ATTEMPTS) {
+        trace(game, emit, 'error', 'request_failed', `${failure}; giving up`, reason);
         throw new DecisionFailedError(player.id, phase, [...reasons, reason]);
       }
-      await new Promise((resolve) => setTimeout(resolve, game.settings.retryBaseDelayMs * 2 ** (requestFailures - 1)));
+      const retryDelayMs = game.settings.retryBaseDelayMs * 2 ** (requestFailures - 1);
+      trace(game, emit, 'warn', 'request_failed', `${failure}; retrying in ${retryDelayMs / 1000}s`, reason);
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
       continue;
     }
 
     const { response, prompt: messages } = reply;
     trackCost(response.cost);
+    trace(game, emit, 'info', 'reply', `Reply from ${player.name} after ${elapsed()} (${response.usage.totalTokens} tokens, $${response.cost.toFixed(4)})`);
     emit('debug', { playerId: player.id, playerName: player.name, model: player.model, phase, ...debugExtra, prompt: messages, response: response.content });
 
     let parsed: PlayerResponse | null = null;
@@ -190,11 +200,15 @@ export async function askForDecision<T>(
       error = 'your reply was not valid JSON. Reply with a single JSON object only.';
     } else {
       const result = validate(parsed);
-      if (result.ok) return { response: parsed, value: result.value };
+      if (result.ok) {
+        trace(game, emit, 'info', 'accepted', `${player.name}'s decision accepted: ${JSON.stringify(parsed.action ?? null)}`);
+        return { response: parsed, value: result.value };
+      }
       error = result.error;
     }
 
     game.llmCalls[game.llmCalls.length - 1].rejected = error;
+    trace(game, emit, 'warn', 'rejected', `${player.name}'s reply was rejected (attempt ${attempt}/${MAX_REPLY_ATTEMPTS}): ${error}`, response.content);
     reasons.push(error);
     message = `Your previous response could not be used: ${error}\nRespond again with valid JSON in the required format.`;
     isRetryFeedback = true;

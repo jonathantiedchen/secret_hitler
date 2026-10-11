@@ -11,9 +11,11 @@ import { ChatSidebar } from '../components/game/ChatSidebar';
 import { LegislationView } from '../components/game/LegislationView';
 import { GameOverOverlay } from '../components/game/GameOverOverlay';
 import { DebugPanel } from '../components/game/DebugPanel';
+import { TraceLog } from '../components/game/TraceLog';
 
 export function GamePage() {
   const [selectedDebugIndex, setSelectedDebugIndex] = useState<number | null>(null);
+  const [rightTab, setRightTab] = useState<'log' | 'debug'>('log');
   const { gameId: urlGameId } = useParams<{ gameId: string }>();
   const storeGameId = useGameStore((state) => state.gameId);
   const gameId = urlGameId || storeGameId;
@@ -33,6 +35,8 @@ export function GamePage() {
     legislation,
     chatMessages,
     debugEntries,
+    traceEntries,
+    gameError,
     winner,
     winCondition,
     pinnedThoughtPlayer,
@@ -51,7 +55,9 @@ export function GamePage() {
     return (
       <div className="h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="text-neutral-400 mb-2">Connecting to game...</div>
+          <div className={gameError ? 'text-red-700 mb-2 max-w-md' : 'text-neutral-400 mb-2'}>
+            {gameError ?? 'Connecting to game...'}
+          </div>
           <div className="text-sm text-neutral-300">
             {gameId ? `Game ID: ${gameId}` : 'No game ID'}
           </div>
@@ -116,6 +122,7 @@ export function GamePage() {
         Math.abs(curr.entry.timestamp - timestamp) < Math.abs(prev.entry.timestamp - timestamp) ? curr : prev
       );
       setSelectedDebugIndex(closest.index);
+      setRightTab('debug');
     }
   };
 
@@ -139,6 +146,16 @@ export function GamePage() {
           totalSnapshots={totalSnapshots}
           historyDescription={historyDescription}
         />
+
+        {/* Game stopped early: say why instead of leaving players "thinking" */}
+        {gameError && (
+          <div className="mx-4 mt-3 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-800 text-[13px]">
+            {gameError}{' '}
+            <button onClick={() => setRightTab('log')} className="underline hover:text-red-900">
+              See the log
+            </button>
+          </div>
+        )}
 
         {/* Policy Tracks */}
         <PolicyTracks
@@ -186,12 +203,34 @@ export function GamePage() {
       {/* MIDDLE: Chat Sidebar */}
       <ChatSidebar messages={chatMessages} onMessageClick={handleMessageClick} />
 
-      {/* RIGHT: Debug Panel */}
-      <DebugPanel
-        entries={debugEntries}
-        selectedIndex={selectedDebugIndex}
-        onClearSelection={() => setSelectedDebugIndex(null)}
-      />
+      {/* RIGHT: technical log and raw prompts/responses */}
+      <div className="bg-neutral-50 border-l border-neutral-200 h-screen flex flex-col min-w-0">
+        <div className="flex border-b border-neutral-200 flex-shrink-0">
+          {([['log', '📋 Log'], ['debug', '🔧 Debug Console']] as const).map(([tab, label]) => (
+            <button
+              key={tab}
+              onClick={() => setRightTab(tab)}
+              className={`px-4 py-3.5 text-[11px] uppercase tracking-wider font-medium border-b-2 -mb-px ${
+                rightTab === tab ? 'text-neutral-900 border-neutral-900' : 'text-neutral-400 border-transparent hover:text-neutral-600'
+              }`}
+            >
+              {label}
+              {tab === 'log' && gameError && <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-red-600 align-middle" />}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 min-h-0">
+          {rightTab === 'log' ? (
+            <TraceLog entries={traceEntries} isActive={!gameError && phase !== 'game_over'} />
+          ) : (
+            <DebugPanel
+              entries={debugEntries}
+              selectedIndex={selectedDebugIndex}
+              onClearSelection={() => setSelectedDebugIndex(null)}
+            />
+          )}
+        </div>
+      </div>
 
       {/* Game Over Overlay */}
       {phase === 'game_over' && winner && winCondition && (

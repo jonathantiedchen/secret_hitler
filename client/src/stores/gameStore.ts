@@ -55,6 +55,16 @@ export interface DebugEntry {
   response: string;
 }
 
+// One step of the server's technical log; entries added by the client itself have no seq
+export interface TraceEntry {
+  seq?: number;
+  timestamp: number;
+  level: 'info' | 'warn' | 'error';
+  step: string;
+  message: string;
+  detail?: string;
+}
+
 // Input from setup
 export interface SetupPlayer {
   id: string;
@@ -87,6 +97,10 @@ interface GameState {
   // Debug
   debugEntries: DebugEntry[];
 
+  // Technical log, and why the game stopped if it was aborted
+  traceEntries: TraceEntry[];
+  gameError: string | null;
+
   // Game end
   winner: 'liberal' | 'fascist' | null;
   winCondition: string | null;
@@ -118,6 +132,8 @@ interface GameState {
   addCost: (amount: number) => void;
   setCost: (cost: number) => void;
   addDebugEntry: (entry: Omit<DebugEntry, 'id' | 'timestamp'>) => void;
+  addTraceEntries: (entries: TraceEntry[]) => void;
+  setGameError: (message: string) => void;
   endGame: (winner: 'liberal' | 'fascist', condition: string) => void;
   setHistoryNav: (index: number | null, total: number, description?: string | null) => void;
   reset: () => void;
@@ -161,6 +177,9 @@ export const useGameStore = create<GameState>()((set, get) => ({
   chatMessages: [],
 
   debugEntries: [],
+
+  traceEntries: [],
+  gameError: null,
 
   winner: null,
   winCondition: null,
@@ -281,6 +300,25 @@ export const useGameStore = create<GameState>()((set, get) => ({
     }));
   },
 
+  // Server entries can arrive twice (live, then again in the history sent on reconnect); keep each seq once
+  addTraceEntries: (entries) => {
+    set((state) => {
+      const lastSeq = state.traceEntries.reduce((max, e) => (e.seq !== undefined && e.seq > max ? e.seq : max), -1);
+      const fresh = entries.filter((e) => e.seq === undefined || e.seq > lastSeq);
+      return fresh.length > 0 ? { traceEntries: [...state.traceEntries, ...fresh] } : {};
+    });
+  },
+
+  // Nobody is thinking any more once the game has stopped
+  setGameError: (message) => {
+    set((state) => ({
+      gameError: message,
+      players: state.players.map((p) =>
+        p.currentThought === 'Thinking...' ? { ...p, currentThought: 'Stopped: the game was aborted.' } : p
+      ),
+    }));
+  },
+
   initializeGame: (setupPlayers: SetupPlayer[]) => {
     // Assign roles based on player count
     const playerCount = setupPlayers.length;
@@ -353,6 +391,8 @@ export const useGameStore = create<GameState>()((set, get) => ({
       chancellorIndex: null,
       legislation: null,
       chatMessages: initialMessages,
+      traceEntries: [],
+      gameError: null,
       winner: null,
       winCondition: null,
       pinnedThoughtPlayer: null,
@@ -373,6 +413,8 @@ export const useGameStore = create<GameState>()((set, get) => ({
     chancellorIndex: null,
     legislation: null,
     chatMessages: [],
+    traceEntries: [],
+    gameError: null,
     winner: null,
     winCondition: null,
     pinnedThoughtPlayer: null,

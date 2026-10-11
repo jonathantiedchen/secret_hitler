@@ -5,6 +5,7 @@ import type { GameState, GameHistory, PolicyCard } from '../game/types.js';
 import type { ChatMessage } from '../ai/openrouter.js';
 import { getSystemPrompt, PROMPT_VERSION } from '../ai/prompts.js';
 import type { LLMCallRecord, AbortReason } from '../logging/gameLog.js';
+import type { TraceEntry } from './trace.js';
 
 // State snapshot for step navigation
 export interface StateSnapshot {
@@ -60,6 +61,8 @@ export interface GameRecord {
   } | null;
   // Set when the game stops early
   abortReason: AbortReason | null;
+  // Technical log shown to the user
+  trace: TraceEntry[];
 }
 
 // Store active games
@@ -118,6 +121,7 @@ export function createGameRecord(
     unloggedMessages: new Map(gameState.players.map((p) => [p.id, []])),
     legislation: null,
     abortReason: null,
+    trace: [],
   };
   games.set(gameId, record);
   return record;

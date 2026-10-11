@@ -39,6 +39,8 @@ export function useGameSocket(gameId: string | null) {
     addDebugEntry,
     setCost,
     setHistoryNav,
+    addTraceEntries,
+    setGameError,
   } = useGameStore();
 
   // Use a function to get fresh players state to avoid stale closure
@@ -61,10 +63,13 @@ export function useGameSocket(gameId: string | null) {
       socket.emit('join', gameId);
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
       console.log('Disconnected from game server');
       currentSocket = null;
       currentGameId = null;
+      if (reason !== 'io client disconnect') {
+        addTraceEntries([{ timestamp: Date.now(), level: 'warn', step: 'connection', message: `Lost connection to the server (${reason}); reconnecting` }]);
+      }
     });
 
     // Game state update
@@ -341,9 +346,21 @@ export function useGameSocket(gameId: string | null) {
       });
     });
 
-    // Error
+    // Technical log: live entries, and the full log so far on (re)joining
+    socket.on('trace', (entry) => {
+      addTraceEntries([entry]);
+    });
+
+    socket.on('trace_history', (entries) => {
+      addTraceEntries(entries);
+    });
+
+    // The game stopped (or is gone from the server)
     socket.on('error', ({ message }) => {
       console.error('Game error:', message);
+      if (useGameStore.getState().gameError === message) return;
+      setGameError(message);
+      addChatMessage({ type: 'action', content: `⛔ ${message}` });
     });
 
     return () => {

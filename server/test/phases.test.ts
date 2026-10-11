@@ -10,7 +10,10 @@ import { fakeClient, inOrder } from './helpers.js';
 const noop = () => {};
 
 // Rejected replies are logged to the console on purpose; keep test output clean
-beforeEach(() => { vi.spyOn(console, 'error').mockImplementation(() => {}); });
+beforeEach(() => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+});
 afterEach(() => { vi.restoreAllMocks(); });
 
 // Player i is named Pi and uses model "mi", so replies can be scripted per player.

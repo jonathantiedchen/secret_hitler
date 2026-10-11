@@ -3,7 +3,10 @@ import { createGameRecord, type GameRecord } from '../src/server/gameRecord.js';
 import { askForDecision, DecisionFailedError, type Validation, type PlayerResponse } from '../src/server/conversation.js';
 import type { LLMClient } from '../src/server/conversation.js';
 
-beforeEach(() => { vi.spyOn(console, 'error').mockImplementation(() => {}); });
+beforeEach(() => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+});
 afterEach(() => { vi.restoreAllMocks(); });
 
 type Reply = string | Error | { content: string; finishReason: string };
@@ -108,6 +111,32 @@ describe('askForDecision', () => {
     expect(failure.playerId).toBe('p0');
     expect(failure.reasons).toHaveLength(3);
     expect(sent).toHaveLength(3);
+  });
+
+  it('traces each request, the rejected reply with its raw text, and the accepted decision', async () => {
+    const g = game();
+    const emitted: unknown[] = [];
+    const { client } = scripted('{"action":{"pick":"P0"}}', '{"action":{"pick":"P3"}}');
+    await askForDecision(g, client, (event, data) => { if (event === 'trace') emitted.push(data); }, () => {}, g.state.players[0], 'PHASE: TEST', 'test', pickPlayer);
+    expect(g.trace.map((e) => [e.level, e.step])).toEqual([
+      ['info', 'request'], ['info', 'reply'], ['warn', 'rejected'],
+      ['info', 'request'], ['info', 'reply'], ['info', 'accepted'],
+    ]);
+    expect(g.trace[2].message).toMatch(/attempt 1\/3.*"P0" is not a valid choice/);
+    expect(g.trace[2].detail).toBe('{"action":{"pick":"P0"}}');
+    expect(g.trace[3].message).toMatch(/attempt 2\/3/);
+    expect(g.trace[5].message).toContain('{"pick":"P3"}');
+    expect(emitted).toEqual(g.trace);
+  });
+
+  it('traces failed requests with the error and the retry', async () => {
+    const g = game();
+    const { client } = scripted(new Error('OpenRouter API error: 503'), '{"action":{"pick":"P1"}}');
+    await ask(g, client);
+    const failed = g.trace.find((e) => e.step === 'request_failed')!;
+    expect(failed.level).toBe('warn');
+    expect(failed.message).toMatch(/failed after .*\(1\/4\); retrying in 0s/);
+    expect(failed.detail).toMatch(/503/);
   });
 
   it('gives up after repeated request failures', async () => {

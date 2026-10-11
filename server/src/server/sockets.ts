@@ -3,6 +3,7 @@
 import type { Server } from 'socket.io';
 import { games } from './gameRecord.js';
 import { sanitizeGameState } from './state.js';
+import { abortMessage } from './trace.js';
 
 export function registerSocketHandlers(io: Server) {
   // Socket.IO connection handling
@@ -20,6 +21,13 @@ export function registerSocketHandlers(io: Server) {
           totalSnapshots: game.snapshots.length,
           isLive: game.viewingIndex === null,
         });
+        // Catch up on the technical log, and tell late joiners if the game already stopped
+        socket.emit('trace_history', game.trace);
+        const aborted = abortMessage(game);
+        if (aborted) socket.emit('error', { message: aborted });
+      } else {
+        // Games live in memory, so a server restart loses them
+        socket.emit('error', { message: `Game ${gameId} is not running on the server (it may have restarted). Start a new game.` });
       }
     });
 
