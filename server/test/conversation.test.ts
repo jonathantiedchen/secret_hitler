@@ -61,6 +61,29 @@ describe('askForDecision', () => {
     expect(sent[1]).toMatch(/could not be used: "P0" is not a valid choice\. Valid choices: P1, P2, P3, P4\./);
   });
 
+  it('quotes the rejected reply, without its free text, and repeats the action format', async () => {
+    const g = game();
+    const { client, sent } = scripted('{"thought":"long reasoning","action":"pick","pick":"P2","dialogue":"hello"}', '{"action":{"pick":"P2"}}');
+    const prompt = 'PHASE: TEST\nYour action should be:\n{ "pick": "<player name>" }';
+    await askForDecision(g, client, () => {}, () => {}, g.state.players[0], prompt, 'test', pickPlayer);
+    expect(sent[1]).toContain('You sent: {"thought":"…","action":"pick","pick":"P2","dialogue":"…"}');
+    expect(sent[1]).toMatch(/with your decision inside "action"\. "action" must be:\n\{ "pick": "<player name>" \}$/);
+  });
+
+  it('quotes a reply that is not JSON as it was sent', async () => {
+    const g = game();
+    const { client, sent } = scripted('I pick P2', '{"action":{"pick":"P2"}}');
+    await ask(g, client);
+    expect(sent[1]).toContain('You sent: I pick P2');
+  });
+
+  it('does not quote a reply cut off at the token limit', async () => {
+    const g = game();
+    const { client, sent } = scripted({ content: '{"thought":"a very long', finishReason: 'length' }, '{"action":{"pick":"P1"}}');
+    await ask(g, client);
+    expect(sent[1]).not.toContain('You sent');
+  });
+
   it('retries a reply that is not JSON', async () => {
     const g = game();
     const { client, sent } = scripted('I pick P2', '{"action":{"pick":"P2"}}');

@@ -13,6 +13,8 @@ import {
   getLegislationClaimPrompt,
   getInvestigationClaimPrompt,
   getPeekClaimPrompt,
+  getActionFormat,
+  getRetryPrompt,
 } from '../src/ai/prompts.js';
 import { makeGame } from './helpers.js';
 
@@ -159,5 +161,51 @@ describe('claim prompts', () => {
 
   it.each(Object.keys(claimPrompts))('%s claim prompt allows declining to claim', (name) => {
     expect(claimPrompts[name as keyof typeof claimPrompts]).toMatch(/: null/);
+  });
+});
+
+describe('retry prompt', () => {
+  const game = makeGame(7, { chancellorIndex: 1, nomineeIndex: 1, fascistPolicies: 5 });
+  const everyPrompt: Record<string, string> = {
+    nomination: getNominationPrompt(game, [1, 2, 3]),
+    voting: getVotingPrompt(game, game.players[1]),
+    president: getPresidentLegislationPrompt(game, ['liberal', 'fascist', 'fascist']),
+    chancellor: getChancellorLegislationPrompt(game, ['liberal', 'fascist']),
+    veto: getVetoResponsePrompt(game),
+    execution: getExecutionPrompt(game),
+    investigation: getInvestigationPrompt(game),
+    specialElection: getSpecialElectionPrompt(game),
+    legislationClaim: getLegislationClaimPrompt('chancellor', ['liberal', 'fascist'], 'fascist'),
+    investigationClaim: getInvestigationClaimPrompt('P3', 'liberal'),
+    peekClaim: getPeekClaimPrompt(['fascist', 'liberal', 'fascist']),
+  };
+
+  it.each(Object.keys(everyPrompt))('finds the action format in the %s prompt, without the text around it', (name) => {
+    const format = getActionFormat(everyPrompt[name]);
+    expect(format).toMatch(/^\{ "type": "/);
+    expect(format).not.toMatch(/Your dialogue|If the executed|Note:/);
+  });
+
+  it('keeps the alternatives of a multi-line format', () => {
+    expect(getActionFormat(everyPrompt.chancellor)).toBe('{ "type": "enact", "index": 0|1 }\nor, to propose a veto:\n{ "type": "veto" }');
+  });
+
+  it('has no action format for a prompt without one', () => {
+    expect(getActionFormat('PHASE: TEST')).toBeNull();
+  });
+
+  it('states the problem, quotes the reply and gives the required action format', () => {
+    expect(getRetryPrompt('"index" must be 0 or 1 (the card to enact).', '{"action":"enact","index":1}', '{ "type": "enact", "index": 0|1 }')).toBe(
+      'Your previous response could not be used: "index" must be 0 or 1 (the card to enact).\n' +
+      'You sent: {"action":"enact","index":1}\n' +
+      'Respond again with a single JSON object, with your decision inside "action". "action" must be:\n' +
+      '{ "type": "enact", "index": 0|1 }'
+    );
+  });
+
+  it('falls back to a generic request without a quote or a format', () => {
+    expect(getRetryPrompt('your reply was cut off.', null, null)).toBe(
+      'Your previous response could not be used: your reply was cut off.\nRespond again with valid JSON in the required format.'
+    );
   });
 });

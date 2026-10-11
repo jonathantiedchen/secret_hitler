@@ -2,7 +2,7 @@
 
 import type { GameState, Player } from '../game/types.js';
 import type { ChatMessage, OpenRouterClient, MockLLMClient } from '../ai/openrouter.js';
-import { buildStateHeader } from '../ai/prompts.js';
+import { buildStateHeader, getActionFormat, getRetryPrompt } from '../ai/prompts.js';
 import type { LLMCallRecord } from '../logging/gameLog.js';
 import type { GameRecord, PublicEvent } from './gameRecord.js';
 import { createEvent } from './state.js';
@@ -121,6 +121,17 @@ export type Validation<T> = { ok: true; value: T } | { ok: false; error: string 
 const MAX_REPLY_ATTEMPTS = 3;
 const MAX_REQUEST_ATTEMPTS = 4;
 
+const MAX_QUOTED_REPLY_LENGTH = 500;
+
+// A rejected reply as quoted back to the model: its JSON with the free text elided, so the
+// structure is easy to compare with the required format, or the raw text if it isn't a JSON object
+function quoteReply(content: string, parsed: unknown): string {
+  const quoted = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+    ? JSON.stringify({ ...parsed, ...('thought' in parsed && { thought: '…' }), ...('dialogue' in parsed && { dialogue: '…' }) })
+    : content.trim();
+  return quoted.length > MAX_QUOTED_REPLY_LENGTH ? `${quoted.slice(0, MAX_QUOTED_REPLY_LENGTH)}…` : quoted;
+}
+
 // A player could not produce a usable decision; the game is aborted rather than playing for them
 export class DecisionFailedError extends Error {
   constructor(public playerId: string, public phase: string, public reasons: string[]) {
@@ -147,6 +158,7 @@ export async function askForDecision<T>(
   emit('thinking', { playerId: player.id, playerName: player.name });
 
   const reasons: string[] = [];
+  const actionFormat = getActionFormat(prompt);
   let message = prompt;
   let isRetryFeedback = false;
   let requestFailures = 0;
@@ -210,7 +222,9 @@ export async function askForDecision<T>(
     game.llmCalls[game.llmCalls.length - 1].rejected = error;
     trace(game, emit, 'warn', 'rejected', `${player.name}'s reply was rejected (attempt ${attempt}/${MAX_REPLY_ATTEMPTS}): ${error}`, response.content);
     reasons.push(error);
-    message = `Your previous response could not be used: ${error}\nRespond again with valid JSON in the required format.`;
+    // A reply cut off at the token limit is long and incomplete; quoting it back wouldn't help
+    const sent = response.finishReason === 'length' ? null : quoteReply(response.content, parsed);
+    message = getRetryPrompt(error, sent, actionFormat);
     isRetryFeedback = true;
     attempt++;
   }
