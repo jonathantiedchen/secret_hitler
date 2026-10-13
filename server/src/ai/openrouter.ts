@@ -64,6 +64,8 @@ export function describeEmptyResponse(data: {
   return parts.length ? ` (${parts.join('; ')})` : '';
 }
 
+const DEFAULT_TIMEOUT_MS = 60_000;
+
 export class OpenRouterClient {
   private apiKey: string;
   private baseUrl = 'https://openrouter.ai/api/v1';
@@ -93,10 +95,13 @@ export class OpenRouterClient {
     options: {
       temperature?: number;
       maxTokens?: number;
+      // How long to wait for the reply; reasoning models can take minutes
+      timeoutMs?: number;
     } = {}
   ): Promise<LLMResponse> {
+    const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       console.log(`[OpenRouter] Calling ${model}...`);
@@ -159,8 +164,8 @@ export class OpenRouterClient {
       };
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        console.error(`[OpenRouter] Request timed out after 60s`);
-        throw new Error('OpenRouter request timed out');
+        console.error(`[OpenRouter] Request timed out after ${timeoutMs / 1000}s`);
+        throw new Error(`OpenRouter request timed out after ${timeoutMs / 1000}s`);
       }
       throw error;
     } finally {
@@ -180,7 +185,7 @@ export class MockLLMClient {
   async chat(
     model: string,
     messages: ChatMessage[],
-    _options: { temperature?: number; maxTokens?: number } = {}
+    _options: { temperature?: number; maxTokens?: number; timeoutMs?: number } = {}
   ): Promise<LLMResponse> {
     await new Promise((resolve) => setTimeout(resolve, this.delay));
 

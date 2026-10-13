@@ -56,6 +56,7 @@ export interface GameLogInput {
     showThoughts: boolean;
     temperature: number;
     maxTokens: number;
+    requestTimeoutSeconds: number;
     costLimit: number;
     maxHistoryMessages: number;
     retryBaseDelayMs: number;
@@ -83,6 +84,8 @@ export interface GameLog {
     playerCount: number;
     temperature: number;
     maxTokens: number;
+    // Absent in logs written before it was configurable (60s then)
+    requestTimeoutSeconds?: number;
     maxHistoryMessages: number;
     costLimit: number;
     mockMode: boolean;
@@ -120,6 +123,7 @@ export function buildGameLog(game: GameLogInput, status: GameLogStatus): GameLog
       playerCount: state.players.length,
       temperature: settings.temperature,
       maxTokens: settings.maxTokens,
+      requestTimeoutSeconds: settings.requestTimeoutSeconds,
       maxHistoryMessages: settings.maxHistoryMessages,
       costLimit: settings.costLimit,
       mockMode: !game.apiKey,

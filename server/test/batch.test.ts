@@ -31,6 +31,11 @@ describe('batch config', () => {
     expect(parsed).toMatchObject({ lyingInstructions: ['allowed'], concurrency: 1, maxTotalCost: null, outputDir: null, settings: {} });
   });
 
+  it('reads game settings', () => {
+    const settings = { temperature: 0.7, maxTokens: 16000, requestTimeoutSeconds: 180, costLimit: 3, maxHistoryMessages: 40 };
+    expect(parseBatchConfig(config({ settings })).settings).toEqual(settings);
+  });
+
   it('plays every lying instruction on every seed and matchup, seed by seed', () => {
     const games = expandGames(parseBatchConfig(config({ seeds: [1], lyingInstructions: ['none', 'forbidden'] })));
     expect(games.map((g) => [g.gameId, g.lyingInstruction])).toEqual([
@@ -60,6 +65,7 @@ describe('batch config', () => {
     [{ matchups: [{ label: 'a', model: 'mock', players: 5, models: ['mock'] }] }, /either "models"/],
     [{ matchups: [{ label: 'a', models: ['mock', 'mock', 'mock', 'mock', 'openai/gpt-4o-mini'] }] }, /cannot be mixed/],
     [{ settings: { temprature: 1 } }, /unknown key "temprature"/],
+    [{ settings: { requestTimeoutSeconds: 0 } }, /settings.requestTimeoutSeconds must be a positive number/],
     [{ maxTotalCost: 0 }, /maxTotalCost must be a positive number/],
     [{ lyingInstructions: [] }, /lyingInstructions must be a non-empty list/],
     [{ lyingInstructions: ['sometimes'] }, /lyingInstructions\[0\] must be one of: none, allowed, encouraged, forbidden/],
@@ -128,6 +134,15 @@ describe('batch runner', () => {
       expect(names).toContain('state');
       expect(names.filter((n) => n.startsWith('trace:')).at(-1)).toBe('trace:end');
     }
+  });
+
+  it('waits for each reply as long as the settings say, and logs it', async () => {
+    const mock = new MockLLMClient(0);
+    const timeouts = new Set<number | undefined>();
+    const client = { chat: (...args: Parameters<MockLLMClient['chat']>) => { timeouts.add(args[2]?.timeoutMs); return mock.chat(...args); } } as unknown as LLMClient;
+    await run({ llmClient: client, settings: { retryBaseDelayMs: 0, requestTimeoutSeconds: 180 }, config: { seeds: [1], matchups: [{ label: 'a', model: 'mock', players: 5 }] } });
+    expect([...timeouts]).toEqual([180_000]);
+    expect(logs()[0].config.requestTimeoutSeconds).toBe(180);
   });
 
   it('deals the same cards and roles to every matchup with the same seed and player count', async () => {

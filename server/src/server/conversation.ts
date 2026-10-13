@@ -87,6 +87,7 @@ export async function askPlayer(
     const response = await llmClient.chat(player.model, history, {
       temperature: game.settings.temperature,
       maxTokens: game.settings.maxTokens,
+      timeoutMs: game.settings.requestTimeoutSeconds * 1000,
     });
     Object.assign(call, {
       response: response.content,

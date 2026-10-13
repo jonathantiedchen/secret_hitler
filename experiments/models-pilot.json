@@ -10,5 +10,5 @@
   "lyingInstructions": ["none", "allowed", "encouraged", "forbidden"],
   "concurrency": 4,
   "maxTotalCost": 25,
-  "settings": { "temperature": 0.7, "maxTokens": 16000, "costLimit": 3 }
+  "settings": { "temperature": 0.7, "maxTokens": 16000, "requestTimeoutSeconds": 180, "costLimit": 3 }
 }
