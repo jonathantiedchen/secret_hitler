@@ -70,7 +70,7 @@ export async function handleLegislationClaims(
 
   await askClaim(game, llmClient, emit, trackCost, president, {
     claimType: 'president_legislation',
-    prompt: getLegislationClaimPrompt('president', session.presidentCards, enacted),
+    prompt: getLegislationClaimPrompt('president', session.presidentCards, enacted, session.chancellorCards),
     field: 'cards',
     actual: session.presidentCards,
     announce: (claimed) => `they drew ${claimed.join(', ')}`,
