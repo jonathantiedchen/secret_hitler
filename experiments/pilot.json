@@ -1,0 +1,10 @@
+{
+  "name": "pilot",
+  "seeds": { "from": 1, "count": 10 },
+  "matchups": [
+    { "label": "gpt-4o-mini-7p", "model": "openai/gpt-4o-mini", "players": 7 }
+  ],
+  "concurrency": 2,
+  "maxTotalCost": 2,
+  "settings": { "temperature": 0.7, "maxTokens": 1500, "costLimit": 0.5 }
+}

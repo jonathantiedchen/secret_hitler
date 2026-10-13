@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import type { GameState, GameHistory, GameEvent, Role } from '../game/types.js';
 import type { ChatMessage, LLMResponse, CostSource } from '../ai/openrouter.js';
 
-export const GAME_LOG_VERSION = '1';
+// 2: adds seed and batch
+export const GAME_LOG_VERSION = '2';
 
 export type GameLogStatus = 'in_progress' | 'completed' | 'aborted';
 
@@ -37,8 +38,15 @@ export interface LLMCallRecord {
   rejected?: string;
 }
 
+// Set for games run by the batch runner: the batch and the matchup the game belongs to
+export interface BatchInfo {
+  name: string;
+  matchup: string;
+}
+
 export interface GameLogInput {
   state: GameState;
+  batch?: BatchInfo | null;
   apiKey: string | null;
   settings: {
     actionDelay: number;
@@ -62,6 +70,9 @@ export interface GameLog {
   status: GameLogStatus;
   abortReason: AbortReason | null;
   promptVersion: string;
+  // Replays the same deal (roles, first President, deck) with createGame
+  seed: number;
+  batch: BatchInfo | null;
   startedAt: string;
   endedAt: string | null;
   config: {
@@ -95,6 +106,8 @@ export function buildGameLog(game: GameLogInput, status: GameLogStatus): GameLog
     status,
     abortReason: game.abortReason,
     promptVersion: history.promptVersion,
+    seed: state.seed,
+    batch: game.batch ?? null,
     startedAt: new Date(history.startTime).toISOString(),
     endedAt: history.endTime ? new Date(history.endTime).toISOString() : null,
     config: {

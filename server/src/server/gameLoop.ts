@@ -1,13 +1,12 @@
 // Runs a game from start to finish, dispatching each phase to its handler
 
 import { fileURLToPath } from 'node:url';
-import type { Server } from 'socket.io';
 import { finishPolicyEnacted } from '../game/engine.js';
 import { OpenRouterClient, MockLLMClient } from '../ai/openrouter.js';
 import { buildGameLog, writeGameLog, type GameLogStatus } from '../logging/gameLog.js';
 import { games, type GameRecord } from './gameRecord.js';
 import { createEvent, createSnapshot, sanitizeGameState } from './state.js';
-import { DecisionFailedError } from './conversation.js';
+import { DecisionFailedError, type Emit, type LLMClient } from './conversation.js';
 import { trace } from './trace.js';
 import { handleNomination } from './phases/nomination.js';
 import { handleVoting } from './phases/voting.js';
@@ -19,26 +18,32 @@ import { handleExecutiveAction } from './phases/executive.js';
 const LOG_DIRECTORY = process.env.LOG_DIRECTORY || fileURLToPath(new URL('../../../logs', import.meta.url));
 
 // Write the game log to disk. Failures are reported but never stop the game.
-function saveGameLog(game: GameRecord, status: GameLogStatus) {
+function saveGameLog(game: GameRecord, status: GameLogStatus, dir: string) {
   try {
-    return writeGameLog(LOG_DIRECTORY, buildGameLog(game, status));
+    return writeGameLog(dir, buildGameLog(game, status));
   } catch (error) {
     console.error(`Failed to write game log for ${game.history.gameId}:`, error);
   }
 }
 
-// Main game loop
-export async function runGameLoop(gameId: string, io: Server) {
+export interface GameLoopOptions {
+  // Where the game log is written
+  logDirectory?: string;
+  // Replaces the client chosen from the API key (tests, fast mock batches)
+  llmClient?: LLMClient;
+  // Stop the game at the cost limit instead of pausing it (nobody can resume a batch game)
+  stopAtCostLimit?: boolean;
+}
+
+// Main game loop. Returns the path of the final game log, if it was written.
+export async function runGameLoop(gameId: string, emit: Emit, options: GameLoopOptions = {}): Promise<string | undefined> {
   const game = games.get(gameId);
   if (!game) return;
 
-  const llmClient = game.apiKey
+  const logDirectory = options.logDirectory ?? LOG_DIRECTORY;
+  const llmClient = options.llmClient ?? (game.apiKey
     ? new OpenRouterClient(game.apiKey)
-    : new MockLLMClient(500);
-
-  const emit = (event: string, data: unknown) => {
-    io.to(gameId).emit(event, data);
-  };
+    : new MockLLMClient(500));
 
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -47,10 +52,17 @@ export async function runGameLoop(gameId: string, io: Server) {
     game.totalCost += cost;
     emit('cost', { cost: game.totalCost, limit: game.settings.costLimit });
 
-    // Check if limit reached
-    if (game.totalCost >= game.settings.costLimit && !game.isPaused) {
+    const limit = `Cost limit of $${game.settings.costLimit.toFixed(2)} reached ($${game.totalCost.toFixed(4)} spent)`;
+    if (game.totalCost < game.settings.costLimit) return;
+    if (options.stopAtCostLimit) {
+      if (!game.isRunning) return;
+      // The game ends after the current phase; that phase's remaining requests still run
+      game.isRunning = false;
+      game.abortReason = { message: `Cost limit of $${game.settings.costLimit.toFixed(2)} reached` };
+      trace(game, emit, 'warn', 'cost_limit', `${limit}; game stops after this phase`);
+    } else if (!game.isPaused) {
       game.isPaused = true;
-      trace(game, emit, 'warn', 'cost_limit', `Cost limit of $${game.settings.costLimit.toFixed(2)} reached ($${game.totalCost.toFixed(4)} spent); game paused`);
+      trace(game, emit, 'warn', 'cost_limit', `${limit}; game paused`);
       emit('paused', { isPaused: true });
       emit('cost_limit_reached', {
         cost: game.totalCost,
@@ -80,7 +92,7 @@ export async function runGameLoop(gameId: string, io: Server) {
       // Save progress each round, so an interrupted game still leaves data
       if (game.state.round !== loggedRound) {
         loggedRound = game.state.round;
-        saveGameLog(game, 'in_progress');
+        saveGameLog(game, 'in_progress', logDirectory);
       }
 
       // Wait while paused
@@ -178,8 +190,8 @@ export async function runGameLoop(gameId: string, io: Server) {
       fascistPolicies: game.state.fascistPolicies,
     });
 
-    if (game.state.phase !== 'game_over') game.abortReason = { message: 'Game was stopped before it ended' };
-    const logPath = saveGameLog(game, game.state.phase === 'game_over' ? 'completed' : 'aborted');
+    if (game.state.phase !== 'game_over') game.abortReason ??= { message: 'Game was stopped before it ended' };
+    const logPath = saveGameLog(game, game.state.phase === 'game_over' ? 'completed' : 'aborted', logDirectory);
     if (logPath) console.log(`📝 Game log written to ${logPath}`);
 
     if (game.state.phase === 'game_over') {
@@ -192,6 +204,7 @@ export async function runGameLoop(gameId: string, io: Server) {
       winner: game.state.winner,
       winCondition: game.state.winCondition,
     });
+    return logPath;
   } catch (error) {
     // No move is ever made up for a player: if they can't decide, the game ends here
     console.error('Game aborted:', error);
@@ -210,7 +223,8 @@ export async function runGameLoop(gameId: string, io: Server) {
     }
     trace(game, emit, 'error', 'abort', message, detail);
     emit('error', { message });
-    saveGameLog(game, 'aborted');
+    const logPath = saveGameLog(game, 'aborted', logDirectory);
     game.isRunning = false;
+    return logPath;
   }
 }

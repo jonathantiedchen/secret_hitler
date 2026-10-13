@@ -58,6 +58,36 @@ describe('setup', () => {
   });
 });
 
+describe('seeded deals', () => {
+  const seats = (model: string) => Array.from({ length: 7 }, (_, i) => ({ id: `${i}`, name: `${i}`, model }));
+  const deal = (g: GameState) => ({ roles: g.players.map((p) => p.role), president: g.presidentIndex, deck: g.drawPile });
+
+  it('the same seed deals the same roles, first President and deck, whatever the models', () => {
+    const a = createGame('a', seats('model-a'), 42);
+    const b = createGame('b', seats('model-b'), 42);
+    expect(deal(b)).toEqual(deal(a));
+    expect(a.seed).toBe(42);
+  });
+
+  it('different seeds deal differently', () => {
+    const decks = new Set([1, 2, 3, 4, 5].map((seed) => JSON.stringify(createGame('g', seats('m'), seed).drawPile)));
+    expect(decks.size).toBe(5);
+  });
+
+  it('records a seed when none is given, so the deal can be replayed', () => {
+    const game = createGame('g', seats('m'));
+    expect(deal(createGame('g', seats('m'), game.seed))).toEqual(deal(game));
+  });
+
+  it('reshuffles the same way from the same state, and advances the generator', () => {
+    const game: GameState = { ...createGame('g', seats('m'), 7), phase: 'legislation_president', drawPile: deck('L', 'F'), discardPile: deck('F', 'F', 'L', 'F', 'L', 'F', 'F') };
+    const drawn = drawCards(game);
+    expect(drawCards(game)).toEqual(drawn);
+    expect([...drawn.drawnCards, ...drawn.drawPile].sort()).toEqual([...game.drawPile, ...game.discardPile].sort());
+    expect(drawn.rngState).not.toBe(game.rngState);
+  });
+});
+
 describe('nomination and term limits', () => {
   it('president cannot nominate themselves', () => {
     const game = makeGame(7);
