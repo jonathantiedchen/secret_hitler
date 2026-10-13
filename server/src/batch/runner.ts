@@ -5,7 +5,7 @@ import { mkdirSync, readdirSync, readFileSync, renameSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { MockLLMClient } from '../ai/openrouter.js';
 import type { AbortReason, GameLog } from '../logging/gameLog.js';
-import type { LLMClient } from '../server/conversation.js';
+import type { Emit, LLMClient } from '../server/conversation.js';
 import { createGameRecord, games, type GameRecord, type GameSettings } from '../server/gameRecord.js';
 import { runGameLoop } from '../server/gameLoop.js';
 import type { GameSpec } from './config.js';
@@ -38,6 +38,9 @@ export interface BatchRunOptions {
   retryAborted?: boolean;
   // Checked before each game starts; a reason stops the batch (e.g. Ctrl+C)
   stopRequested?: () => string | null;
+  onGameStart?: (spec: GameSpec) => void;
+  // Every event a game sends (the ones the web UI receives: trace, dialogue, state, cost, ...)
+  onGameEvent?: (spec: GameSpec, event: string, data: unknown) => void;
   onGameEnd?: (result: GameResult) => void;
 }
 
@@ -116,9 +119,11 @@ export async function runBatch(specs: GameSpec[], options: BatchRunOptions): Pro
     });
     game.isRunning = true;
     running.add(game);
+    options.onGameStart?.(spec);
+    const emit: Emit = (event, data) => options.onGameEvent?.(spec, event, data);
     const start = Date.now();
     try {
-      const logPath = await runGameLoop(spec.gameId, () => {}, { logDirectory: options.outputDir, llmClient, stopAtCostLimit: true });
+      const logPath = await runGameLoop(spec.gameId, emit, { logDirectory: options.outputDir, llmClient, stopAtCostLimit: true });
       results[i] = {
         spec,
         outcome: game.state.phase === 'game_over' ? 'completed' : 'aborted',

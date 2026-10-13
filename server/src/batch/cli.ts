@@ -1,30 +1,36 @@
 // Play a batch of games without the UI, for experiments.
 //
-//   npm run batch -- <config.json> [--dry-run] [--concurrency N] [--retry-aborted] [--verbose]
+//   npm run batch -- <config.json> [--dry-run] [--concurrency N] [--retry-aborted] [--quiet] [--verbose]
 //
 // Every matchup plays every seed, so matchups meet identical deals. Logs go to <repo>/logs/<name>
 // (or the config's outputDir, relative to the config file). Running the same config again skips the
 // games already finished. Real models need OPENROUTER_API_KEY. Ctrl+C stops starting new games;
 // a second Ctrl+C quits at once. --retry-aborted also replays games aborted because a player gave no
 // usable reply (kept as results otherwise), e.g. after fixing how replies are read.
+// While games run, every step and what players say is printed, tagged with its game, with a status of
+// the running games every minute; --quiet prints only game starts, results and the status.
 
 import { readFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expandGames, isMockModel, parseBatchConfig, type BatchConfig } from './config.js';
-import { findFinishedGames, isInfrastructureFailure, runBatch, type GameResult } from './runner.js';
+import { createProgress, duration, money } from './progress.js';
+import { findFinishedGames, runBatch, type GameResult } from './runner.js';
 
 const REPO_LOGS = fileURLToPath(new URL('../../../logs', import.meta.url));
 const DEFAULT_COST_LIMIT = 1;
+const STATUS_EVERY_MS = 60_000;
+const USAGE = 'Usage: npm run batch -- <config.json> [--dry-run] [--concurrency N] [--retry-aborted] [--quiet] [--verbose]';
 
 const out = (line = '') => process.stdout.write(`${line}\n`);
 
 function parseArgs(argv: string[]) {
-  const args = { config: undefined as string | undefined, dryRun: false, concurrency: undefined as number | undefined, verbose: false, retryAborted: false };
+  const args = { config: undefined as string | undefined, dryRun: false, concurrency: undefined as number | undefined, verbose: false, quiet: false, retryAborted: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry-run') args.dryRun = true;
     else if (a === '--verbose') args.verbose = true;
+    else if (a === '--quiet') args.quiet = true;
     else if (a === '--retry-aborted') args.retryAborted = true;
     else if (a === '--concurrency') {
       args.concurrency = Number(argv[++i]);
@@ -32,7 +38,7 @@ function parseArgs(argv: string[]) {
     } else if (a.startsWith('--')) throw new Error(`Unknown option ${a}`);
     else args.config = a;
   }
-  if (!args.config) throw new Error('Usage: npm run batch -- <config.json> [--dry-run] [--concurrency N] [--retry-aborted] [--verbose]');
+  if (!args.config) throw new Error(USAGE);
   return args as typeof args & { config: string };
 }
 
@@ -48,22 +54,6 @@ function loadConfig(path: string): BatchConfig {
   } catch (error) {
     throw new Error(`Invalid config ${path}: ${error instanceof Error ? error.message : String(error)}`);
   }
-}
-
-const money = (usd: number) => `$${usd.toFixed(usd < 1 ? 4 : 2)}`;
-const duration = (ms: number) => `${Math.floor(ms / 60000)}m${String(Math.round((ms % 60000) / 1000)).padStart(2, '0')}s`;
-
-function describeAbort(result: GameResult): string {
-  const reason = result.abortReason;
-  if (!reason) return 'stopped';
-  if ('reasons' in reason) {
-    const player = result.spec.players.find((p) => p.id === reason.playerId);
-    const who = `${player?.name ?? reason.playerId} (${reason.model})`;
-    return isInfrastructureFailure(reason)
-      ? `requests for ${who} in ${reason.phase} failed: ${reason.reasons.at(-1)?.replace(/^request failed: /, '')}`
-      : `${who} gave no usable response in ${reason.phase}: ${reason.reasons.at(-1)}`;
-  }
-  return reason.message;
 }
 
 function summaryTable(config: BatchConfig, results: GameResult[]) {
@@ -117,7 +107,7 @@ async function main() {
   const apiKey = mock ? null : process.env.OPENROUTER_API_KEY ?? null;
   if (!mock && !apiKey) throw new Error('Set OPENROUTER_API_KEY to play real models');
 
-  // Game internals log every request; keep the output to one line per game unless asked
+  // Game internals log every request; the progress lines below show the steps instead, unless asked
   if (!args.verbose) console.log = console.warn = console.error = () => {};
 
   let interrupted = false;
@@ -128,8 +118,14 @@ async function main() {
   });
 
   out();
-  const toPlay = specs.length - alreadyPlayed;
-  let done = 0;
+  const progress = createProgress({
+    specs,
+    toPlay: specs.length - alreadyPlayed,
+    quiet: args.quiet,
+    write: out,
+    color: !!process.stdout.isTTY && !process.env.NO_COLOR,
+  });
+  const status = setInterval(() => progress.status(), STATUS_EVERY_MS);
   const startedAt = Date.now();
   const { results, stopReason } = await runBatch(specs, {
     batchName: config.name,
@@ -140,12 +136,11 @@ async function main() {
     maxTotalCost: config.maxTotalCost,
     settings: { ...config.settings, costLimit },
     stopRequested: () => (interrupted ? 'interrupted' : null),
-    onGameEnd: (r) => {
-      done++;
-      const what = r.outcome === 'completed' ? `completed  ${r.winner} win, ${r.rounds} rounds` : `ABORTED    ${describeAbort(r)}`;
-      out(`[${String(done).padStart(String(toPlay).length)}/${toPlay}] ${r.spec.matchup}  ${r.spec.lyingInstruction}  seed ${r.spec.seed}  ${what}  ${money(r.cost)}  ${duration(r.durationMs)}`);
-    },
+    onGameStart: progress.gameStarted,
+    onGameEvent: progress.gameEvent,
+    onGameEnd: progress.gameEnded,
   });
+  clearInterval(status);
 
   out();
   summaryTable(config, results);
