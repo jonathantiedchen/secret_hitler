@@ -10,7 +10,7 @@ function input(overrides: Partial<GameLogInput> = {}): GameLogInput {
   return {
     state,
     apiKey: 'sk-or-secret-key',
-    settings: { actionDelay: 0, showThoughts: true, temperature: 0.7, maxTokens: 800, costLimit: 1, maxHistoryMessages: 40, retryBaseDelayMs: 1000 },
+    settings: { actionDelay: 0, showThoughts: true, temperature: 0.7, maxTokens: 800, costLimit: 1, maxHistoryMessages: 40, retryBaseDelayMs: 1000, lyingInstruction: 'allowed' },
     abortReason: null,
     history: {
       gameId: 'game-1',

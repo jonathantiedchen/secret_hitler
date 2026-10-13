@@ -4,9 +4,10 @@ import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { GameState, GameHistory, GameEvent, Role } from '../game/types.js';
 import type { ChatMessage, LLMResponse, CostSource } from '../ai/openrouter.js';
+import type { LyingInstruction } from '../ai/prompts.js';
 
-// 2: adds seed and batch
-export const GAME_LOG_VERSION = '2';
+// 2: adds seed and batch. 3: adds config.lyingInstruction
+export const GAME_LOG_VERSION = '3';
 
 export type GameLogStatus = 'in_progress' | 'completed' | 'aborted';
 
@@ -56,6 +57,7 @@ export interface GameLogInput {
     costLimit: number;
     maxHistoryMessages: number;
     retryBaseDelayMs: number;
+    lyingInstruction: LyingInstruction;
   };
   history: GameHistory;
   totalCost: number;
@@ -82,6 +84,8 @@ export interface GameLog {
     maxHistoryMessages: number;
     costLimit: number;
     mockMode: boolean;
+    // What players were told about lying; absent before log version 3
+    lyingInstruction: LyingInstruction;
   };
   players: Array<{ index: number; id: string; name: string; model: string; role: Role; party: 'liberal' | 'fascist'; isAlive: boolean }>;
   result: {
@@ -117,6 +121,7 @@ export function buildGameLog(game: GameLogInput, status: GameLogStatus): GameLog
       maxHistoryMessages: settings.maxHistoryMessages,
       costLimit: settings.costLimit,
       mockMode: !game.apiKey,
+      lyingInstruction: settings.lyingInstruction,
     },
     players: state.players.map((p, index) => ({
       index,

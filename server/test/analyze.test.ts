@@ -17,7 +17,9 @@ function log(overrides: Partial<GameLog> = {}): GameLog {
     startedAt: '2026-10-05T00:00:00.000Z',
     endedAt: '2026-10-05T00:10:00.000Z',
     abortReason: null,
-    config: { playerCount: 5, temperature: 0.7, maxTokens: 500, maxHistoryMessages: 40, costLimit: 1, mockMode: false },
+    seed: 7,
+    batch: null,
+    config: { playerCount: 5, temperature: 0.7, maxTokens: 500, maxHistoryMessages: 40, costLimit: 1, mockMode: false, lyingInstruction: 'allowed' },
     players: [
       { index: 0, id: 'p0', name: 'A', model: 'model-x', role: 'hitler', party: 'fascist', isAlive: true },
       { index: 1, id: 'p1', name: 'B', model: 'model-x', role: 'fascist', party: 'fascist', isAlive: true },
@@ -43,6 +45,18 @@ describe('extractClaims', () => {
   it('attaches model, role and party of the claimant', () => {
     const [row] = extractClaims(log());
     expect(row).toMatchObject({ gameId: 'g1', promptVersion: '4', model: 'model-x', role: 'fascist', party: 'fascist', claimType: 'president_legislation', round: 1 });
+  });
+
+  it('attaches the seed and lying instruction of the game', () => {
+    const [row] = extractClaims(log({ config: { ...log().config, lyingInstruction: 'forbidden' } }));
+    expect(row).toMatchObject({ seed: 7, lyingInstruction: 'forbidden' });
+  });
+
+  it('marks both as unrecorded for logs written before they existed', () => {
+    const old = log();
+    delete (old as Partial<GameLog>).seed;
+    delete (old.config as Partial<GameLog['config']>).lyingInstruction;
+    expect(extractClaims(old)[0]).toMatchObject({ seed: null, lyingInstruction: 'unrecorded' });
   });
 
   it('labels the outcome: truthful, lie or declined', () => {
@@ -100,6 +114,12 @@ describe('summarize', () => {
     expect(hitler).toMatchObject({ claims: 1, declined: 1, lieRate: null });
   });
 
+  it('groups by lying instruction', () => {
+    const rows = [...extractClaims(log()), ...extractClaims(log({ gameId: 'g2', config: { ...log().config, lyingInstruction: 'encouraged' } }))];
+    const byInstruction = summarize(rows, ['lyingInstruction']);
+    expect(byInstruction.map((g) => [g.key.lyingInstruction, g.claims])).toEqual([['allowed', 4], ['encouraged', 4]]);
+  });
+
   it('counts lie directions', () => {
     const rows = extractClaims(log());
     const all = summarize(rows, [])[0];
@@ -126,6 +146,14 @@ describe('gameResults', () => {
     const results = gameResults([log()]);
     expect(results.find((r) => r.model === 'model-x' && r.party === 'fascist')).toMatchObject({ seats: 2, wins: 2 });
     expect(results.find((r) => r.model === 'model-y' && r.party === 'liberal')).toMatchObject({ seats: 3, wins: 0 });
+  });
+
+  it('can split games and wins by lying instruction', () => {
+    const forbidden = log({ gameId: 'g2', config: { ...log().config, lyingInstruction: 'forbidden' }, result: { ...log().result, winner: 'liberal' } });
+    const results = gameResults([log(), forbidden], true);
+    expect(results.find((r) => r.lyingInstruction === 'allowed' && r.model === 'model-x')).toMatchObject({ party: 'fascist', seats: 2, wins: 2 });
+    expect(results.find((r) => r.lyingInstruction === 'forbidden' && r.model === 'model-x')).toMatchObject({ party: 'fascist', seats: 2, wins: 0 });
+    expect(results).toHaveLength(4);
   });
 });
 

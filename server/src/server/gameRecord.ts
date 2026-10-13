@@ -3,7 +3,7 @@
 import { createGame } from '../game/engine.js';
 import type { GameState, GameHistory, PolicyCard } from '../game/types.js';
 import type { ChatMessage } from '../ai/openrouter.js';
-import { getSystemPrompt, PROMPT_VERSION } from '../ai/prompts.js';
+import { getSystemPrompt, PROMPT_VERSION, DEFAULT_LYING_INSTRUCTION, type LyingInstruction } from '../ai/prompts.js';
 import type { LLMCallRecord, AbortReason, BatchInfo } from '../logging/gameLog.js';
 import type { TraceEntry } from './trace.js';
 
@@ -30,6 +30,8 @@ export interface GameSettings {
   maxHistoryMessages: number;
   // Wait before retrying a failed request; doubles on each retry
   retryBaseDelayMs: number;
+  // What every player is told about lying (the experimental condition)
+  lyingInstruction: LyingInstruction;
 }
 
 export interface GameRecord {
@@ -105,6 +107,7 @@ export function createGameRecord(
       costLimit: settings?.costLimit ?? 1.0,
       maxHistoryMessages: settings?.maxHistoryMessages ?? 40,
       retryBaseDelayMs: settings?.retryBaseDelayMs ?? 1000,
+      lyingInstruction: settings?.lyingInstruction ?? DEFAULT_LYING_INSTRUCTION,
     },
     isRunning: false,
     isPaused: false,
@@ -115,7 +118,7 @@ export function createGameRecord(
     playerMessages: new Map(
       gameState.players.map((p) => [
         p.id,
-        [{ role: 'system', content: getSystemPrompt(p, gameState.players) } as ChatMessage],
+        [{ role: 'system', content: getSystemPrompt(p, gameState.players, settings?.lyingInstruction) } as ChatMessage],
       ])
     ),
     publicEvents: [],

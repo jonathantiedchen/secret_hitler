@@ -5,5 +5,6 @@
     { "label": "mock-5", "model": "mock", "players": 5 },
     { "label": "mock-7", "model": "mock", "players": 7 }
   ],
+  "lyingInstructions": ["none", "allowed", "encouraged", "forbidden"],
   "concurrency": 4
 }

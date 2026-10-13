@@ -65,22 +65,24 @@ function describeAbort(result: GameResult): string {
 }
 
 function summaryTable(config: BatchConfig, results: GameResult[]) {
-  const rows = config.matchups.map((m) => {
-    const of = (outcome: string) => results.filter((r) => r.spec.matchup === m.label && r.outcome === outcome);
+  const rows = config.matchups.flatMap((m) => config.lyingInstructions.map((instruction) => {
+    const cell = results.filter((r) => r.spec.matchup === m.label && r.spec.lyingInstruction === instruction);
+    const of = (outcome: string) => cell.filter((r) => r.outcome === outcome);
     const played = [...of('completed'), ...of('skipped').filter((r) => !r.abortReason)];
     return [
       m.label,
+      instruction,
       String(of('completed').length),
       String(of('aborted').length),
       String(of('skipped').length),
       String(of('not_started').length),
       `${played.filter((r) => r.winner === 'liberal').length}/${played.filter((r) => r.winner === 'fascist').length}`,
-      money(results.filter((r) => r.spec.matchup === m.label).reduce((sum, r) => sum + r.cost, 0)),
+      money(cell.reduce((sum, r) => sum + r.cost, 0)),
     ];
-  });
-  const headers = ['matchup', 'completed', 'aborted', 'skipped', 'not started', 'lib/fas wins', 'cost'];
+  }));
+  const headers = ['matchup', 'lying', 'completed', 'aborted', 'skipped', 'not started', 'lib/fas wins', 'cost'];
   const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i].length)));
-  const line = (cells: string[]) => cells.map((c, i) => (i === 0 ? c.padEnd(widths[i]) : c.padStart(widths[i]))).join('  ');
+  const line = (cells: string[]) => cells.map((c, i) => (i < 2 ? c.padEnd(widths[i]) : c.padStart(widths[i]))).join('  ');
   out(line(headers));
   out(widths.map((w) => '-'.repeat(w)).join('  '));
   rows.forEach((r) => out(line(r)));
@@ -98,11 +100,12 @@ async function main() {
   const finished = findFinishedGames(outputDir);
   const alreadyPlayed = specs.filter((s) => finished.has(s.gameId)).length;
 
-  out(`Batch "${config.name}": ${config.matchups.length} matchup(s) x ${config.seeds.length} seed(s) = ${specs.length} games`);
+  out(`Batch "${config.name}": ${config.matchups.length} matchup(s) x ${config.lyingInstructions.length} lying instruction(s) x ${config.seeds.length} seed(s) = ${specs.length} games`);
   for (const m of config.matchups) {
     const models = [...new Set(m.models)];
     out(`  ${m.label}: ${m.models.length} players, ${models.length === 1 ? models[0] : m.models.join(', ')}`);
   }
+  out(`Lying instructions: ${config.lyingInstructions.join(', ')}`);
   out(`Seeds: ${config.seeds.length > 6 ? `${config.seeds.slice(0, 3).join(', ')}, ..., ${config.seeds.at(-1)}` : config.seeds.join(', ')}`);
   out(`Already played: ${alreadyPlayed}; to play: ${specs.length - alreadyPlayed}`);
   out(`Concurrency ${concurrency}, cost limit $${costLimit.toFixed(2)} per game, budget ${config.maxTotalCost ? `$${config.maxTotalCost.toFixed(2)}` : 'none'}`);
@@ -137,7 +140,7 @@ async function main() {
     onGameEnd: (r) => {
       done++;
       const what = r.outcome === 'completed' ? `completed  ${r.winner} win, ${r.rounds} rounds` : `ABORTED    ${describeAbort(r)}`;
-      out(`[${String(done).padStart(String(toPlay).length)}/${toPlay}] ${r.spec.matchup}  seed ${r.spec.seed}  ${what}  ${money(r.cost)}  ${duration(r.durationMs)}`);
+      out(`[${String(done).padStart(String(toPlay).length)}/${toPlay}] ${r.spec.matchup}  ${r.spec.lyingInstruction}  seed ${r.spec.seed}  ${what}  ${money(r.cost)}  ${duration(r.durationMs)}`);
     },
   });
 

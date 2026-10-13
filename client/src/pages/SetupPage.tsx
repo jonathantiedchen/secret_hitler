@@ -93,6 +93,7 @@ export function SetupPage() {
           temperature: settings.temperature,
           maxTokens: settings.maxTokens,
           costLimit: settings.costLimit,
+          lyingInstruction: settings.lyingInstruction ?? 'allowed',
         }
       );
 

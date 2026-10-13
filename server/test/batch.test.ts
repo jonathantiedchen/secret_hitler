@@ -26,12 +26,22 @@ describe('batch config', () => {
       { label: 'same', models: Array(5).fill('mock') },
       { label: 'seats', models: Array(6).fill('mock') },
     ]);
-    expect(parsed).toMatchObject({ concurrency: 1, maxTotalCost: null, outputDir: null, settings: {} });
+    expect(parsed).toMatchObject({ lyingInstructions: ['allowed'], concurrency: 1, maxTotalCost: null, outputDir: null, settings: {} });
+  });
+
+  it('plays every lying instruction on every seed and matchup, seed by seed', () => {
+    const games = expandGames(parseBatchConfig(config({ seeds: [1], lyingInstructions: ['none', 'forbidden'] })));
+    expect(games.map((g) => [g.gameId, g.lyingInstruction])).toEqual([
+      ['pilot-same-none-s1', 'none'],
+      ['pilot-seats-none-s1', 'none'],
+      ['pilot-same-forbidden-s1', 'forbidden'],
+      ['pilot-seats-forbidden-s1', 'forbidden'],
+    ]);
   });
 
   it('plays every matchup on every seed, seed by seed', () => {
     const games = expandGames(parseBatchConfig(config()));
-    expect(games.map((g) => g.gameId)).toEqual(['pilot-same-s1', 'pilot-seats-s1', 'pilot-same-s2', 'pilot-seats-s2']);
+    expect(games.map((g) => g.gameId)).toEqual(['pilot-same-allowed-s1', 'pilot-seats-allowed-s1', 'pilot-same-allowed-s2', 'pilot-seats-allowed-s2']);
     expect(games[1].players[5]).toEqual({ id: 'player-5', name: 'Agent Zeta', model: 'mock' });
   });
 
@@ -49,6 +59,9 @@ describe('batch config', () => {
     [{ matchups: [{ label: 'a', models: ['mock', 'mock', 'mock', 'mock', 'openai/gpt-4o-mini'] }] }, /cannot be mixed/],
     [{ settings: { temprature: 1 } }, /unknown key "temprature"/],
     [{ maxTotalCost: 0 }, /maxTotalCost must be a positive number/],
+    [{ lyingInstructions: [] }, /lyingInstructions must be a non-empty list/],
+    [{ lyingInstructions: ['sometimes'] }, /lyingInstructions\[0\] must be one of: none, allowed, encouraged, forbidden/],
+    [{ lyingInstructions: ['none', 'none'] }, /must not repeat/],
   ])('rejects %j', (overrides, message) => {
     expect(() => parseBatchConfig(config(overrides))).toThrow(message);
   });
@@ -86,10 +99,10 @@ describe('batch runner', () => {
     const written = logs();
     expect(written).toHaveLength(4);
     expect(written.map((l) => [l.gameId, l.seed, l.batch]).sort()).toEqual([
-      ['pilot-same-s1', 1, { name: 'pilot', matchup: 'same' }],
-      ['pilot-same-s2', 2, { name: 'pilot', matchup: 'same' }],
-      ['pilot-seats-s1', 1, { name: 'pilot', matchup: 'seats' }],
-      ['pilot-seats-s2', 2, { name: 'pilot', matchup: 'seats' }],
+      ['pilot-same-allowed-s1', 1, { name: 'pilot', matchup: 'same' }],
+      ['pilot-same-allowed-s2', 2, { name: 'pilot', matchup: 'same' }],
+      ['pilot-seats-allowed-s1', 1, { name: 'pilot', matchup: 'seats' }],
+      ['pilot-seats-allowed-s2', 2, { name: 'pilot', matchup: 'seats' }],
     ]);
   });
 
@@ -99,8 +112,16 @@ describe('batch runner', () => {
       const log = logs().find((l) => l.gameId === id)!;
       return { roles: log.players.map((p) => p.role), firstDraw: log.events.find((e) => e.type === 'cards_drawn')?.data.cards, president: log.events[0].data.presidentIndex };
     };
-    expect(start('pilot-b-s1')).toEqual(start('pilot-a-s1'));
-    expect(start('pilot-b-s2')).toEqual(start('pilot-a-s2'));
+    expect(start('pilot-b-allowed-s1')).toEqual(start('pilot-a-allowed-s1'));
+    expect(start('pilot-b-allowed-s2')).toEqual(start('pilot-a-allowed-s2'));
+  });
+
+  it('tells the players of each game its lying instruction, and records it in the log', async () => {
+    await run({ config: { seeds: [1], matchups: [{ label: 'a', model: 'mock', players: 5 }], lyingInstructions: ['none', 'forbidden'] } });
+    const byInstruction = new Map(logs().map((l) => [l.config.lyingInstruction, l]));
+    expect([...byInstruction.keys()].sort()).toEqual(['forbidden', 'none']);
+    expect(Object.values(byInstruction.get('forbidden')!.systemPrompts).every((p) => p.includes('You must not lie.'))).toBe(true);
+    expect(Object.values(byInstruction.get('none')!.systemPrompts).some((p) => /\blie\b|lying/i.test(p))).toBe(false);
   });
 
   it('skips games already finished when run again', async () => {
@@ -132,6 +153,6 @@ describe('batch runner', () => {
     const { results } = await run({ llmClient: costly(0.01), concurrency: 1, settings: { retryBaseDelayMs: 0, costLimit: 0.05 }, config: { seeds: [1] } });
     expect(results[0].outcome).toBe('aborted');
     expect(results[0].abortReason).toEqual({ message: 'Cost limit of $0.05 reached' });
-    expect(logs().find((l) => l.gameId === 'pilot-same-s1')?.status).toBe('aborted');
+    expect(logs().find((l) => l.gameId === 'pilot-same-allowed-s1')?.status).toBe('aborted');
   });
 });
