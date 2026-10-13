@@ -143,6 +143,19 @@ describe('batch runner', () => {
     expect(readdirSync(join(dir, 'superseded'))).toHaveLength(3);
   });
 
+  it('keeps games aborted for unusable replies, unless asked to retry them', async () => {
+    const invalid = { config: { seeds: [1], matchups: [{ label: 'm', model: 'mock-invalid', players: 5 }] } };
+    expect((await run(invalid)).results.map((r) => r.outcome)).toEqual(['aborted']);
+    expect((await run(invalid)).results.map((r) => r.outcome)).toEqual(['skipped']);
+
+    // As if replies are now read correctly: the model answers usably
+    const mock = new MockLLMClient(0);
+    const fixed = { chat: (_model: string, ...rest: [Parameters<MockLLMClient['chat']>[1], Parameters<MockLLMClient['chat']>[2]?]) => mock.chat('mock', ...rest) } as unknown as LLMClient;
+    const retried = await run({ ...invalid, llmClient: fixed, retryAborted: true });
+    expect(retried.results.map((r) => r.outcome)).toEqual(['completed']);
+    expect(readdirSync(join(dir, 'superseded'))).toHaveLength(1);
+  });
+
   it('starts no new game once the budget is spent', async () => {
     const { results, stopReason } = await run({ llmClient: costly(0.01), concurrency: 1, maxTotalCost: 0.05, settings: { retryBaseDelayMs: 0, costLimit: 100 } });
     expect(stopReason).toMatch(/budget of \$0.05 spent/);

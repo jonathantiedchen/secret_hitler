@@ -7,6 +7,7 @@ import type { LLMCallRecord } from '../logging/gameLog.js';
 import type { GameRecord, PublicEvent } from './gameRecord.js';
 import { createEvent } from './state.js';
 import { trace } from './trace.js';
+import { extractJson } from '../ai/json.js';
 
 export type LLMClient = OpenRouterClient | MockLLMClient;
 export type Emit = (event: string, data: unknown) => void;
@@ -191,13 +192,11 @@ export async function askForDecision<T>(
     trace(game, emit, 'info', 'reply', `Reply from ${player.name} after ${elapsed()} (${response.usage.totalTokens} tokens, $${response.cost.toFixed(4)})`);
     emit('debug', { playerId: player.id, playerName: player.name, model: player.model, phase, ...debugExtra, prompt: messages, response: response.content });
 
-    let parsed: PlayerResponse | null = null;
+    // A fenced or wrapped object is taken as the reply; the log notes that it had to be unwrapped
+    const extracted = extractJson(response.content);
+    const parsed = (extracted?.value ?? null) as PlayerResponse | null;
+    if (extracted?.unwrapped) game.llmCalls[game.llmCalls.length - 1].jsonUnwrapped = true;
     let error: string;
-    try {
-      parsed = JSON.parse(response.content);
-    } catch (e) {
-      parsed = null;
-    }
 
     if (parsed?.thought) {
       createEvent(game, 'thought', { playerId: player.id, playerName: player.name, content: parsed.thought, ...(attempt > 1 && { attempt }) });

@@ -7,6 +7,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { GameEvent } from '../game/types.js';
 import type { GameLog } from '../logging/gameLog.js';
+import { extractJson } from '../ai/json.js';
 
 // Bump whenever the judge's instructions or the context it gets change
 export const JUDGE_PROMPT_VERSION = '1';
@@ -183,12 +184,9 @@ THE STATEMENT (round ${event.round}${action ? `; in the same turn the speaker ${
 
 // Check the judge's reply; returns the assertions or why the reply can't be used
 export function parseJudgeReply(content: string): { ok: true; assertions: JudgedAssertion[] } | { ok: false; error: string } {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    return { ok: false, error: 'the reply was not valid JSON' };
-  }
+  const extracted = extractJson(content);
+  if (!extracted) return { ok: false, error: 'the reply was not valid JSON' };
+  const parsed = extracted.value;
   const list = (parsed as { assertions?: unknown })?.assertions;
   if (!Array.isArray(list)) return { ok: false, error: 'the reply needs an "assertions" list' };
   const assertions: JudgedAssertion[] = [];

@@ -34,6 +34,8 @@ export interface BatchRunOptions {
   settings?: Partial<GameSettings>;
   // Replaces the OpenRouter / mock client (tests)
   llmClient?: LLMClient;
+  // Play games aborted for unusable replies again, instead of keeping them as results
+  retryAborted?: boolean;
   // Checked before each game starts; a reason stops the batch (e.g. Ctrl+C)
   stopRequested?: () => string | null;
   onGameEnd?: (result: GameResult) => void;
@@ -50,10 +52,12 @@ export function isInfrastructureFailure(reason: AbortReason | null | undefined):
   return !reason.message.startsWith('Cost limit');
 }
 
-// Finished games are kept: completed ones, and those a player could not decide in (a result about the model).
-// Anything else (requests failed, cost limit, error, crash mid-game) is played again.
-function isFinished(log: GameLog): boolean {
-  return log.status === 'completed' || (log.status === 'aborted' && !!log.abortReason && 'reasons' in log.abortReason && !isInfrastructureFailure(log.abortReason));
+// Finished games are kept: completed ones, and those a player could not decide in (a result about the model)
+// unless retryAborted is set (after fixing what made replies unusable). Anything else (requests failed,
+// cost limit, error, crash mid-game) is played again.
+function isFinished(log: GameLog, retryAborted: boolean): boolean {
+  if (log.status === 'completed') return true;
+  return !retryAborted && log.status === 'aborted' && !!log.abortReason && 'reasons' in log.abortReason && !isInfrastructureFailure(log.abortReason);
 }
 
 function readLogs(dir: string): Array<{ path: string; log: GameLog }> {
@@ -73,14 +77,14 @@ function readLogs(dir: string): Array<{ path: string; log: GameLog }> {
 }
 
 // The finished log of each game already played in this folder, by game id
-export function findFinishedGames(outputDir: string): Map<string, { path: string; log: GameLog }> {
-  return new Map(readLogs(outputDir).filter(({ log }) => isFinished(log)).map((entry) => [entry.log.gameId, entry]));
+export function findFinishedGames(outputDir: string, retryAborted = false): Map<string, { path: string; log: GameLog }> {
+  return new Map(readLogs(outputDir).filter(({ log }) => isFinished(log, retryAborted)).map((entry) => [entry.log.gameId, entry]));
 }
 
 export async function runBatch(specs: GameSpec[], options: BatchRunOptions): Promise<{ results: GameResult[]; stopReason: string | null }> {
   mkdirSync(options.outputDir, { recursive: true });
   const logs = readLogs(options.outputDir);
-  const finished = findFinishedGames(options.outputDir);
+  const finished = findFinishedGames(options.outputDir, options.retryAborted);
   const llmClient = options.llmClient ?? (options.apiKey ? undefined : new MockLLMClient(0));
 
   const results: GameResult[] = specs.map((spec) => {

@@ -42,6 +42,28 @@ export function extractCost(
   return { cost: 0, costSource: 'unknown' };
 }
 
+// Why a response had no text, from the fields OpenRouter passes through (shown in the game's abort reason)
+export function describeEmptyResponse(data: {
+  error?: unknown;
+  provider?: string;
+  usage?: { completion_tokens?: number };
+  choices?: Array<{ finish_reason?: string; native_finish_reason?: string; message?: { refusal?: unknown; reasoning?: unknown; tool_calls?: unknown } }>;
+}): string {
+  const choice = data.choices?.[0];
+  const parts = [
+    data.error !== undefined && `error: ${JSON.stringify(data.error).slice(0, 300)}`,
+    !data.choices?.length && 'no choices',
+    choice?.finish_reason && `finish_reason: ${choice.finish_reason}`,
+    choice?.native_finish_reason && `native_finish_reason: ${choice.native_finish_reason}`,
+    choice?.message?.refusal && `refusal: ${String(choice.message.refusal).slice(0, 300)}`,
+    choice?.message?.reasoning && `reasoning only (${String(choice.message.reasoning).length} characters)`,
+    choice?.message?.tool_calls && 'tool calls instead of text',
+    data.usage && `${data.usage.completion_tokens ?? 0} completion tokens`,
+    data.provider && `provider: ${data.provider}`,
+  ].filter(Boolean);
+  return parts.length ? ` (${parts.join('; ')})` : '';
+}
+
 export class OpenRouterClient {
   private apiKey: string;
   private baseUrl = 'https://openrouter.ai/api/v1';
@@ -105,11 +127,11 @@ export class OpenRouterClient {
       }
 
       const data = await response.json();
-      const choice = data.choices[0];
+      const choice = data.choices?.[0];
 
       if (!choice?.message?.content) {
         console.error(`[OpenRouter] Invalid response:`, JSON.stringify(data));
-        throw new Error('OpenRouter returned empty response');
+        throw new Error(`OpenRouter returned empty response${describeEmptyResponse(data)}`);
       }
 
       // OpenRouter reports the charged cost; otherwise use the model's listed price

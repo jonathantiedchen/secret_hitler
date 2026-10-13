@@ -125,6 +125,7 @@ describe('judge replies', () => {
       assertions: [{ quote: 'I drew three Fascists', topic: 'own_cards', verdict: 'lie', reason: 'drew a Liberal' }],
     });
     expect(parseJudgeReply('{"assertions":[]}')).toEqual({ ok: true, assertions: [] });
+    expect(parseJudgeReply('```json\n{"assertions":[]}\n```')).toEqual({ ok: true, assertions: [] });
   });
 
   it.each([

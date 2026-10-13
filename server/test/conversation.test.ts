@@ -84,6 +84,14 @@ describe('askForDecision', () => {
     expect(sent[1]).not.toContain('You sent');
   });
 
+  it('takes a fenced reply as the decision, and notes that it was unwrapped', async () => {
+    const g = game();
+    const { client, sent } = scripted('```json\n{"thought":"t","action":{"pick":"P2"}}\n```');
+    expect((await ask(g, client)).value).toBe('P2');
+    expect(sent).toHaveLength(1);
+    expect(g.llmCalls[0].jsonUnwrapped).toBe(true);
+  });
+
   it('retries a reply that is not JSON', async () => {
     const g = game();
     const { client, sent } = scripted('I pick P2', '{"action":{"pick":"P2"}}');
