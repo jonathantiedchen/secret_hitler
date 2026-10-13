@@ -6,7 +6,9 @@ import { MockLLMClient } from '../src/ai/openrouter.js';
 import type { LLMClient } from '../src/server/conversation.js';
 import type { GameLog } from '../src/logging/gameLog.js';
 import { expandGames, parseBatchConfig } from '../src/batch/config.js';
-import { runBatch, type BatchRunOptions } from '../src/batch/runner.js';
+import { runBatch, type BatchRunOptions, type GameResult } from '../src/batch/runner.js';
+import { createProgress } from '../src/batch/progress.js';
+import type { TraceEntry } from '../src/server/trace.js';
 
 const config = (overrides: Record<string, unknown> = {}) => ({
   name: 'pilot',
@@ -106,6 +108,28 @@ describe('batch runner', () => {
     ]);
   });
 
+  it('reports when each game starts and every event it sends', async () => {
+    const started: string[] = [];
+    const events = new Map<string, string[]>();
+    await run({
+      config: { seeds: [1] },
+      onGameStart: (spec) => started.push(spec.gameId),
+      onGameEvent: (spec, event, data) => {
+        const name = event === 'trace' ? `trace:${(data as TraceEntry).step}` : event;
+        events.set(spec.gameId, [...(events.get(spec.gameId) ?? []), name]);
+      },
+    });
+    expect(started.sort()).toEqual(['pilot-same-allowed-s1', 'pilot-seats-allowed-s1']);
+    for (const id of started) {
+      const names = events.get(id)!;
+      expect(names[0]).toBe('trace:start');
+      expect(names).toContain('trace:request');
+      expect(names).toContain('dialogue');
+      expect(names).toContain('state');
+      expect(names.filter((n) => n.startsWith('trace:')).at(-1)).toBe('trace:end');
+    }
+  });
+
   it('deals the same cards and roles to every matchup with the same seed and player count', async () => {
     await run({ config: { matchups: [{ label: 'a', model: 'mock', players: 7 }, { label: 'b', model: 'mock', players: 7 }] } });
     const start = (id: string) => {
@@ -167,5 +191,63 @@ describe('batch runner', () => {
     expect(results[0].outcome).toBe('aborted');
     expect(results[0].abortReason).toEqual({ message: 'Cost limit of $0.05 reached' });
     expect(logs().find((l) => l.gameId === 'pilot-same-allowed-s1')?.status).toBe('aborted');
+  });
+});
+
+describe('batch progress', () => {
+  const [spec, other] = expandGames(parseBatchConfig(config({ seeds: [1], matchups: [{ label: 'gpt', model: 'openai/gpt-4o-mini', players: 5 }], lyingInstructions: ['none', 'forbidden'] })));
+  let clock = 0;
+  const setup = (quiet = false) => {
+    const lines: string[] = [];
+    clock = new Date(2026, 0, 1, 12, 0, 0).getTime();
+    const progress = createProgress({ specs: [spec, other], toPlay: 2, quiet, write: (l) => lines.push(l), color: false, now: () => clock });
+    return { lines, progress };
+  };
+  const step = (stepName: string, message: string, level: TraceEntry['level'] = 'info'): TraceEntry => ({ seq: 0, timestamp: clock, level, step: stepName, message });
+
+  it('prints each game start, step, spoken line and result, tagged with its game', () => {
+    const { lines, progress } = setup();
+    progress.gameStarted(spec);
+    progress.gameEvent(spec, 'trace', step('start', 'Game started'));
+    progress.gameEvent(spec, 'trace', step('request', 'Asking Alpha (openai/gpt-4o-mini) for nomination; waiting for the reply'));
+    progress.gameEvent(spec, 'dialogue', { playerName: 'Alpha', content: 'I nominate Beta.' });
+    progress.gameEvent(spec, 'thought', { playerName: 'Alpha', content: 'private' });
+    progress.gameEvent(spec, 'trace', step('end', 'Game over'));
+    clock += 250_000;
+    progress.gameEnded({ spec, outcome: 'completed', cost: 0.0251, durationMs: 250_000, winner: 'liberal', rounds: 8 } as GameResult);
+    expect(lines).toEqual([
+      '12:00:00  gpt/none/s1       started: 5 players, openai/gpt-4o-mini',
+      '12:00:00  gpt/none/s1       Asking Alpha (openai/gpt-4o-mini) for nomination; waiting for the reply',
+      '12:00:00  gpt/none/s1       Alpha says: "I nominate Beta."',
+      '12:04:10  gpt/none/s1       [1/2] completed  liberal win, 8 rounds  $0.0251  4m10s',
+    ]);
+  });
+
+  it('shows where each running game is and how long ago its last step was', () => {
+    const { lines, progress } = setup(true);
+    progress.gameStarted(spec);
+    progress.gameStarted(other);
+    progress.gameEvent(spec, 'state', { round: 3, phase: 'election' });
+    progress.gameEvent(spec, 'cost', { cost: 0.0123, limit: 3 });
+    progress.gameEvent(spec, 'trace', step('request', 'Asking Gamma (openai/gpt-4o-mini) for vote; waiting for the reply'));
+    clock += 95_000;
+    lines.length = 0;
+    progress.status();
+    expect(lines).toEqual([
+      '--- 12:01:35  0/2 games done, 2 running, $0.0123 spent',
+      '    gpt/none/s1       round 3, election, $0.0123, running 1m35s; last step 1m35s ago: Asking Gamma (openai/gpt-4o-mini) for vote; waiting for the reply',
+      '    gpt/forbidden/s1  starting, $0.0000, running 1m35s',
+    ]);
+  });
+
+  it('prints only starts and results when quiet, and no status once nothing runs', () => {
+    const { lines, progress } = setup(true);
+    progress.gameStarted(spec);
+    progress.gameEvent(spec, 'trace', step('rejected', 'Alpha\'s reply was rejected', 'warn'));
+    progress.gameEvent(spec, 'dialogue', { playerName: 'Alpha', content: 'Hi' });
+    progress.gameEnded({ spec, outcome: 'aborted', cost: 0, durationMs: 1000, abortReason: { message: 'Cost limit of $3.00 reached' } } as GameResult);
+    progress.status();
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toContain('[1/2] ABORTED    Cost limit of $3.00 reached');
   });
 });
