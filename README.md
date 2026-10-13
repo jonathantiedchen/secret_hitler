@@ -41,6 +41,7 @@ A config lists matchups, lying instructions and seeds; every matchup plays every
   - `forbidden`: players must not lie, but may withhold information or decline to claim.
 
   Omitted, a batch plays `allowed` only. Each game log records its instruction (`config.lyingInstruction`), and `npm run analyze` reports lie rates and wins per instruction when a folder holds several. The setup screen offers the same choice.
+- `settings.requestTimeoutSeconds` (default 60) is how long one reply may take before the request is retried; reasoning models such as DeepSeek can need several minutes.
 - `maxTotalCost` (USD) stops new games from starting once spent; running games finish, each up to its own `settings.costLimit` (default $1), at which it is stopped and logged as aborted.
 - Logs go to `logs/<name>/`, or `outputDir` (relative to the config file). Running the same config again skips finished games, so an interrupted batch resumes. Games that ended on failed requests or the cost limit are played again; their old logs move to `superseded/`.
 - While it runs, the batch prints every step of each game and what players say out loud, tagged with the game (`matchup/instruction/seed`), and every minute the status of the running games: round, phase, cost, and how long ago the last step happened, so a slow request shows what it is waiting on.

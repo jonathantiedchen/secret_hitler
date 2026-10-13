@@ -48,6 +48,17 @@ describe('OpenRouterClient empty responses', () => {
   });
 });
 
+describe('OpenRouterClient timeout', () => {
+  it('gives up on a reply after the timeout it is given', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    // A request that only ends when it is aborted
+    vi.stubGlobal('fetch', vi.fn((_url: string, init: { signal: AbortSignal }) => new Promise((_resolve, reject) => {
+      init.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+    })));
+    await expect(new OpenRouterClient('key').chat('m', [], { timeoutMs: 20 })).rejects.toThrow('OpenRouter request timed out after 0.02s');
+  });
+});
+
 describe('OpenRouterClient cost', () => {
   function completion(usage: Record<string, unknown>) {
     return { ok: true, json: async () => ({ model: 'openai/gpt-4o-mini', choices: [{ message: { content: '{}' }, finish_reason: 'stop' }], usage }) };

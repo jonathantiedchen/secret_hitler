@@ -26,6 +26,8 @@ export interface GameSettings {
   showThoughts: boolean;
   temperature: number;
   maxTokens: number;
+  // How long to wait for one reply before the request counts as failed (and is retried)
+  requestTimeoutSeconds: number;
   costLimit: number;
   maxHistoryMessages: number;
   // Wait before retrying a failed request; doubles on each retry
@@ -104,6 +106,7 @@ export function createGameRecord(
       showThoughts: settings?.showThoughts ?? true,
       temperature: settings?.temperature ?? 0.7,
       maxTokens: settings?.maxTokens ?? 1500,
+      requestTimeoutSeconds: settings?.requestTimeoutSeconds ?? 60,
       costLimit: settings?.costLimit ?? 1.0,
       maxHistoryMessages: settings?.maxHistoryMessages ?? 40,
       retryBaseDelayMs: settings?.retryBaseDelayMs ?? 1000,

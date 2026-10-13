@@ -7,6 +7,8 @@ import { DEFAULT_LYING_INSTRUCTION, LYING_INSTRUCTIONS, isLyingInstruction, type
 export interface BatchSettings {
   temperature?: number;
   maxTokens?: number;
+  // How long to wait for one reply (default 60); reasoning models can need minutes
+  requestTimeoutSeconds?: number;
   // USD per game; a batch game that reaches it is stopped and logged as aborted
   costLimit?: number;
   maxHistoryMessages?: number;
@@ -118,7 +120,7 @@ function parseLyingInstructions(value: unknown): LyingInstruction[] {
 function parseSettings(value: unknown): BatchSettings {
   if (value === undefined) return {};
   if (!isObject(value)) return fail('settings must be an object');
-  checkKeys(value, ['temperature', 'maxTokens', 'costLimit', 'maxHistoryMessages'], 'settings');
+  checkKeys(value, ['temperature', 'maxTokens', 'requestTimeoutSeconds', 'costLimit', 'maxHistoryMessages'], 'settings');
   const settings: BatchSettings = {};
   if (value.temperature !== undefined) {
     const t = value.temperature;
@@ -130,6 +132,7 @@ function parseSettings(value: unknown): BatchSettings {
     }
   }
   if (value.costLimit !== undefined) settings.costLimit = positiveNumber(value.costLimit, 'settings.costLimit');
+  if (value.requestTimeoutSeconds !== undefined) settings.requestTimeoutSeconds = positiveNumber(value.requestTimeoutSeconds, 'settings.requestTimeoutSeconds');
   return settings;
 }
 
