@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "analyze": "tsx src/analysis/cli.ts",
-    "batch": "tsx src/batch/cli.ts"
+    "batch": "tsx src/batch/cli.ts",
+    "score-dialogue": "tsx src/analysis/scoreCli.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
