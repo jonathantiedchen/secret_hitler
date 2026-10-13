@@ -97,6 +97,11 @@ describe('system prompt: rules', () => {
   ])('covers %s', (pattern) => {
     expect(promptFor(7, 4)).toMatch(pattern);
   });
+
+  it('explains that saying what you drew or passed reveals your discard', () => {
+    expect(promptFor(7, 1)).toMatch(/also tells everyone which card you discarded/);
+    expect(promptFor(7, 1)).toMatch(/discard a Liberal policy when they could discard a Fascist one/);
+  });
 });
 
 describe('phase prompts: neutral wording', () => {
@@ -146,6 +151,13 @@ describe('claim prompts', () => {
 
   it.each(Object.keys(claimPrompts))('%s claim prompt is a CLAIM phase', (name) => {
     expect(claimPrompts[name as keyof typeof claimPrompts]).toMatch(/^PHASE: CLAIM/m);
+  });
+
+  it('tells the President which card they discarded and which they passed', () => {
+    expect(getLegislationClaimPrompt('president', ['liberal', 'fascist', 'fascist'], 'fascist', ['fascist', 'fascist']))
+      .toMatch(/You drew: LIBERAL, FASCIST, FASCIST\. You discarded LIBERAL and passed FASCIST, FASCIST to the Chancellor, who enacted FASCIST\./);
+    expect(getLegislationClaimPrompt('president', ['liberal', 'fascist', 'fascist'], 'fascist', ['liberal', 'fascist']))
+      .toMatch(/You discarded FASCIST and passed LIBERAL, FASCIST to the Chancellor/);
   });
 
   it('privately restates what the player actually saw', () => {

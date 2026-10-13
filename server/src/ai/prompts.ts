@@ -6,7 +6,7 @@ import { getValidTargets } from '../game/engine.js';
 
 // Bump whenever any prompt wording changes (system or phase prompts), so games
 // played under different prompts can be told apart in research data.
-export const PROMPT_VERSION = '5';
+export const PROMPT_VERSION = '6';
 
 const POWER_NAMES: Record<ExecutiveAction, string> = {
   investigate: 'Investigate Loyalty (President secretly sees one player\'s party membership)',
@@ -48,6 +48,10 @@ Each round:
 3. Election tracker: each failed election advances the tracker. On the 3rd failure the top policy card is enacted automatically (no presidential power is granted), the tracker resets, and term limits are forgotten.
 4. Legislative session (no talking during it): the President draws 3 policies, secretly discards 1, and passes 2 to the Chancellor, who secretly discards 1 and enacts the other. Only the enacted policy is revealed, so claims about what was drawn cannot be verified.
 5. The presidency then passes to the next living player in the order listed above (wrapping around).
+
+What a legislative session reveals:
+- Liberals want Liberal policies and Fascists want Fascist policies, so players judge each other's roles by the policies their governments enact and by what they say they drew, passed or received.
+- The President's and the Chancellor's discards decide which policy is enacted, so saying which cards you drew, passed or received also tells everyone which card you discarded. A Liberal has no reason to discard a Liberal policy when they could discard a Fascist one, so a player who appears to have done that is suspected of being a Fascist.
 
 Presidential powers in a ${playerCount}-player game (the President must use the power after their government enacts that Fascist policy):
 ${describePowers(playerCount)}
@@ -260,14 +264,20 @@ Your action should be:
 
 const upper = (cards: string[]) => cards.map((c) => c.toUpperCase()).join(', ');
 
+// For the President, `passed` (the Chancellor's two cards) spells out what they discarded and passed
 export function getLegislationClaimPrompt(
   role: 'president' | 'chancellor',
   cards: PolicyCard[],
-  enacted: PolicyCard
+  enacted: PolicyCard,
+  passed: PolicyCard[] | null = null
 ): string {
-  const seen = role === 'president'
-    ? `You drew: ${upper(cards)}. You passed 2 to the Chancellor, who enacted ${enacted.toUpperCase()}.`
-    : `You received: ${upper(cards)}. You enacted ${enacted.toUpperCase()}.`;
+  const liberals = (c: PolicyCard[]) => c.filter((card) => card === 'liberal').length;
+  const discarded: PolicyCard | null = passed ? (liberals(cards) > liberals(passed) ? 'liberal' : 'fascist') : null;
+  const seen = role === 'chancellor'
+    ? `You received: ${upper(cards)}. You enacted ${enacted.toUpperCase()}.`
+    : discarded && passed
+      ? `You drew: ${upper(cards)}. You discarded ${discarded.toUpperCase()} and passed ${upper(passed)} to the Chancellor, who enacted ${enacted.toUpperCase()}.`
+      : `You drew: ${upper(cards)}. You passed 2 to the Chancellor, who enacted ${enacted.toUpperCase()}.`;
   const count = cards.length;
 
   return `
