@@ -11,6 +11,7 @@ cd server
 npm run batch -- ../experiments/mock.json             # mock players, no API key needed
 OPENROUTER_API_KEY=sk-or-... npm run batch -- ../experiments/pilot.json
 OPENROUTER_API_KEY=sk-or-... npm run batch -- ../experiments/lying-instructions.json
+OPENROUTER_API_KEY=sk-or-... npm run batch -- ../experiments/models-pilot.json   # study pilot: 5 models x 4 instructions x 2 seeds
 npm run analyze -- ../logs/pilot                      # lie rates, results, data quality
 ```
 
