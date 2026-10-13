@@ -6,6 +6,7 @@ import { games, createGameRecord } from './gameRecord.js';
 import { sanitizeGameState } from './state.js';
 import { runGameLoop } from './gameLoop.js';
 import { isSeed } from '../game/random.js';
+import { isLyingInstruction, LYING_INSTRUCTIONS } from '../ai/prompts.js';
 
 export function registerRoutes(app: Express, io: Server) {
   // REST API endpoints
@@ -22,6 +23,9 @@ export function registerRoutes(app: Express, io: Server) {
     // Optional: replays the deal of an earlier game (its log records the seed)
     if (seed !== undefined && !isSeed(seed)) {
       return res.status(400).json({ error: 'seed must be an integer from 0 to 4294967295' });
+    }
+    if (settings?.lyingInstruction !== undefined && !isLyingInstruction(settings.lyingInstruction)) {
+      return res.status(400).json({ error: `settings.lyingInstruction must be one of: ${LYING_INSTRUCTIONS.join(', ')}` });
     }
 
     const gameId = `game-${Date.now()}`;

@@ -42,6 +42,7 @@ export function Step4Start({ onStart, onEditStep }: Step4StartProps) {
     settings.speedMode === 'realtime' ? `Realtime (${settings.actionDelay}s delay)` : 'Fast mode',
     settings.showThoughts ? 'Thoughts visible' : 'Thoughts hidden',
     settings.revealRoles ? 'Roles visible to you' : 'Roles hidden',
+    `Lying ${{ none: 'not mentioned', allowed: 'allowed', encouraged: 'encouraged', forbidden: 'forbidden' }[settings.lyingInstruction ?? 'allowed']}`,
   ].join(' • ');
 
   return (

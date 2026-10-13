@@ -15,6 +15,7 @@ import {
   getPeekClaimPrompt,
   getActionFormat,
   getRetryPrompt,
+  LYING_INSTRUCTIONS,
 } from '../src/ai/prompts.js';
 import { makeGame } from './helpers.js';
 
@@ -57,6 +58,35 @@ function roleSection(playerCount: number, playerIndex: number): string {
   const prompt = promptFor(playerCount, playerIndex);
   return prompt.slice(prompt.indexOf('YOUR SECRET ROLE'), prompt.indexOf('PLAY TO WIN'));
 }
+
+describe('system prompt: lying instructions', () => {
+  const game = makeGame(7);
+  const prompt = (instruction: (typeof LYING_INSTRUCTIONS)[number], seat = 1) => getSystemPrompt(game.players[seat], game.players, instruction);
+  const withoutInstruction = (text: string) => text.replace(/PLAY TO WIN\n[\s\S]*?\n\nGAME RULES/, 'PLAY TO WIN\nGAME RULES');
+
+  it('defaults to allowing lies', () => {
+    expect(getSystemPrompt(game.players[1], game.players)).toBe(prompt('allowed'));
+  });
+
+  it.each(LYING_INSTRUCTIONS)('%s changes only the PLAY TO WIN paragraph', (instruction) => {
+    expect(prompt(instruction)).not.toBe(withoutInstruction(prompt(instruction)));
+    expect(withoutInstruction(prompt(instruction))).toBe(withoutInstruction(prompt('allowed')));
+  });
+
+  it.each([0, 1, 4])('none never mentions lying, bluffing or deception (seat %i)', (seat) => {
+    expect(prompt('none', seat)).not.toMatch(/\blies?\b|lying|bluff|decei/i);
+  });
+
+  it('encouraged tells players to lie when it helps their team', () => {
+    expect(prompt('encouraged')).toMatch(/Lie whenever it helps your team win\./);
+  });
+
+  it('forbidden rules out lying but allows withholding', () => {
+    expect(prompt('forbidden')).toMatch(/You must not lie\./);
+    expect(prompt('forbidden')).toMatch(/decline to make a claim/);
+    expect(prompt('forbidden')).not.toMatch(/Lying is allowed/);
+  });
+});
 
 describe('system prompt: secret knowledge', () => {
   it('a liberal is not told anyone else\'s role', () => {

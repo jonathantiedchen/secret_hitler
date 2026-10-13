@@ -106,7 +106,7 @@ export async function runBatch(specs: GameSpec[], options: BatchRunOptions): Pro
       for (const { path } of earlier) renameSync(path, join(options.outputDir, SUPERSEDED_DIR, basename(path)));
     }
 
-    const game = createGameRecord(spec.gameId, spec.players, options.apiKey, { ...options.settings, actionDelay: 0 }, {
+    const game = createGameRecord(spec.gameId, spec.players, options.apiKey, { ...options.settings, actionDelay: 0, lyingInstruction: spec.lyingInstruction }, {
       seed: spec.seed,
       batch: { name: options.batchName, matchup: spec.matchup },
     });

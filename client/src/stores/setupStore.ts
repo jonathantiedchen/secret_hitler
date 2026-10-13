@@ -7,6 +7,9 @@ export interface Player {
   model: string;
 }
 
+// What every player is told about lying (matches the server's LYING_INSTRUCTIONS)
+export type LyingInstruction = 'none' | 'allowed' | 'encouraged' | 'forbidden';
+
 export interface GameSettings {
   speedMode: 'realtime' | 'fast';
   actionDelay: number;
@@ -17,6 +20,8 @@ export interface GameSettings {
   temperature: number;
   maxTokens: number;
   costLimit: number; // Maximum cost in dollars before auto-pause
+  // Missing in settings saved before it existed
+  lyingInstruction?: LyingInstruction;
 }
 
 export interface Model {
@@ -92,6 +97,7 @@ const defaultSettings: GameSettings = {
   temperature: 0.7,
   maxTokens: 1500,
   costLimit: 1.0, // Default $1 limit
+  lyingInstruction: 'allowed',
 };
 
 export const useSetupStore = create<SetupState>()(

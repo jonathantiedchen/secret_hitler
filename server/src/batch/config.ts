@@ -1,7 +1,8 @@
-// Batch config: which matchups to play, on which seeds, with which settings.
-// Every matchup plays every seed, so matchups can be compared on identical deals.
+// Batch config: which matchups to play, under which lying instructions, on which seeds.
+// Every matchup plays every seed under every instruction, so all of them meet identical deals.
 
 import { isSeed } from '../game/random.js';
+import { DEFAULT_LYING_INSTRUCTION, LYING_INSTRUCTIONS, isLyingInstruction, type LyingInstruction } from '../ai/prompts.js';
 
 export interface BatchSettings {
   temperature?: number;
@@ -21,6 +22,8 @@ export interface BatchConfig {
   name: string;
   seeds: number[];
   matchups: Matchup[];
+  // The experimental conditions: what players are told about lying
+  lyingInstructions: LyingInstruction[];
   concurrency: number;
   // USD for one run of the batch: no new game starts once it is spent
   maxTotalCost: number | null;
@@ -31,6 +34,7 @@ export interface BatchConfig {
 export interface GameSpec {
   gameId: string;
   matchup: string;
+  lyingInstruction: LyingInstruction;
   seed: number;
   players: Array<{ id: string; name: string; model: string }>;
 }
@@ -103,6 +107,14 @@ function parseMatchup(value: unknown, i: number): Matchup {
   return { label: label as string, models: models as string[] };
 }
 
+function parseLyingInstructions(value: unknown): LyingInstruction[] {
+  if (value === undefined) return [DEFAULT_LYING_INSTRUCTION];
+  if (!Array.isArray(value) || value.length === 0) return fail('lyingInstructions must be a non-empty list');
+  value.forEach((v, i) => isLyingInstruction(v) || fail(`lyingInstructions[${i}] must be one of: ${LYING_INSTRUCTIONS.join(', ')}`));
+  if (new Set(value).size !== value.length) fail('lyingInstructions must not repeat');
+  return value as LyingInstruction[];
+}
+
 function parseSettings(value: unknown): BatchSettings {
   if (value === undefined) return {};
   if (!isObject(value)) return fail('settings must be an object');
@@ -124,7 +136,7 @@ function parseSettings(value: unknown): BatchSettings {
 // Validate a parsed config file. Throws an Error naming the first problem.
 export function parseBatchConfig(raw: unknown): BatchConfig {
   if (!isObject(raw)) return fail('the config must be a JSON object');
-  checkKeys(raw, ['name', 'seeds', 'matchups', 'concurrency', 'maxTotalCost', 'outputDir', 'settings'], 'config');
+  checkKeys(raw, ['name', 'seeds', 'matchups', 'lyingInstructions', 'concurrency', 'maxTotalCost', 'outputDir', 'settings'], 'config');
   const { name } = raw;
   if (typeof name !== 'string' || !SLUG.test(name)) fail('name must be letters, digits, ".", "_" or "-" (it is used in game ids and file names)');
 
@@ -143,6 +155,7 @@ export function parseBatchConfig(raw: unknown): BatchConfig {
     name: name as string,
     seeds: parseSeeds(raw.seeds),
     matchups,
+    lyingInstructions: parseLyingInstructions(raw.lyingInstructions),
     concurrency: concurrency as number,
     maxTotalCost: raw.maxTotalCost === undefined ? null : positiveNumber(raw.maxTotalCost, 'maxTotalCost'),
     outputDir: (raw.outputDir as string | undefined) ?? null,
@@ -150,14 +163,18 @@ export function parseBatchConfig(raw: unknown): BatchConfig {
   };
 }
 
-// One game per matchup and seed, seed by seed, so a batch stopped early stays balanced across matchups
+// One game per seed, instruction and matchup, seed by seed, so a batch stopped early stays
+// balanced across instructions and matchups
 export function expandGames(config: BatchConfig): GameSpec[] {
   return config.seeds.flatMap((seed) =>
-    config.matchups.map((matchup) => ({
-      gameId: `${config.name}-${matchup.label}-s${seed}`,
-      matchup: matchup.label,
-      seed,
-      players: matchup.models.map((model, seat) => ({ id: `player-${seat}`, name: `Agent ${PLAYER_NAMES[seat]}`, model })),
-    }))
+    config.lyingInstructions.flatMap((lyingInstruction) =>
+      config.matchups.map((matchup) => ({
+        gameId: `${config.name}-${matchup.label}-${lyingInstruction}-s${seed}`,
+        matchup: matchup.label,
+        lyingInstruction,
+        seed,
+        players: matchup.models.map((model, seat) => ({ id: `player-${seat}`, name: `Agent ${PLAYER_NAMES[seat]}`, model })),
+      }))
+    )
   );
 }

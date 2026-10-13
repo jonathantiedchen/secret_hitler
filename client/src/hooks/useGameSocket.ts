@@ -397,7 +397,7 @@ export function goLive(): void {
 export async function createGame(
   players: Array<{ id: string; name: string; model: string }>,
   apiKey: string | null,
-  settings: { actionDelay: number; showThoughts: boolean; temperature: number; maxTokens: number; costLimit: number }
+  settings: { actionDelay: number; showThoughts: boolean; temperature: number; maxTokens: number; costLimit: number; lyingInstruction: string }
 ): Promise<string> {
   const response = await fetch(`${SERVER_URL}/api/games`, {
     method: 'POST',

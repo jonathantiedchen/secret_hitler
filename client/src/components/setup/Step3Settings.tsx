@@ -1,4 +1,4 @@
-import { useSetupStore } from '../../stores/setupStore';
+import { useSetupStore, type LyingInstruction } from '../../stores/setupStore';
 import { ToggleSwitch } from './ToggleSwitch';
 
 export function Step3Settings() {
@@ -107,6 +107,24 @@ export function Step3Settings() {
       <div className="mb-6">
         <h3 className="text-sm font-medium text-neutral-700 mb-3">LLM Behavior</h3>
         <div className="bg-white border border-neutral-200 rounded-lg p-4 space-y-3">
+          {/* Lying instruction (the experimental condition) */}
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="text-sm text-neutral-900">Lying Instruction</div>
+              <div className="text-xs text-neutral-500">What every player is told about lying</div>
+            </div>
+            <select
+              value={settings.lyingInstruction ?? 'allowed'}
+              onChange={(e) => updateSettings({ lyingInstruction: e.target.value as LyingInstruction })}
+              className="px-3 py-2 border border-neutral-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+            >
+              <option value="none">Not mentioned</option>
+              <option value="allowed">Allowed (default)</option>
+              <option value="encouraged">Encouraged</option>
+              <option value="forbidden">Forbidden</option>
+            </select>
+          </div>
+
           {/* Max Retries */}
           <div className="flex justify-between items-center">
             <div>

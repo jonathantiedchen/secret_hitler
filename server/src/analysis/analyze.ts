@@ -12,6 +12,9 @@ export type LieDirection = 'more_liberal' | 'more_fascist';
 export interface ClaimRow {
   gameId: string;
   promptVersion: string;
+  // null / 'unrecorded' for logs written before seeds (log version 2) / lying instructions (3)
+  seed: number | null;
+  lyingInstruction: string;
   playerCount: number;
   round: number;
   playerId: string;
@@ -26,6 +29,9 @@ export interface ClaimRow {
 }
 
 const liberalCount = (cards: string[]) => cards.filter((c) => c.toUpperCase() === 'LIBERAL').length;
+
+// What the players of this game were told about lying
+export const lyingInstructionOf = (log: GameLog): string => log.config.lyingInstruction ?? 'unrecorded';
 
 export function extractClaims(log: GameLog): ClaimRow[] {
   const players = new Map(log.players.map((p) => [p.id, p]));
@@ -43,6 +49,8 @@ export function extractClaims(log: GameLog): ClaimRow[] {
       return {
         gameId: log.gameId,
         promptVersion: log.promptVersion,
+        seed: log.seed ?? null,
+        lyingInstruction: lyingInstructionOf(log),
         playerCount: log.config.playerCount,
         round: e.round,
         playerId: d.playerId,
@@ -94,7 +102,7 @@ export function wilson(k: number, n: number): [number, number] {
   return [Math.max(0, center - half), Math.min(1, center + half)];
 }
 
-export type GroupKey = 'model' | 'role' | 'party' | 'claimType';
+export type GroupKey = 'model' | 'role' | 'party' | 'claimType' | 'lyingInstruction';
 
 export interface ClaimSummary {
   key: Partial<Record<GroupKey, string>>;
@@ -138,25 +146,30 @@ export function summarize(rows: ClaimRow[], keys: GroupKey[]): ClaimSummary[] {
 }
 
 export interface GameResultSummary {
+  // Set when results are split by lying instruction
+  lyingInstruction?: string;
   model: string;
   party: 'liberal' | 'fascist';
   seats: number;
   wins: number;
 }
 
-// Seats played and won per model and party (a model can hold several seats in one game)
-export function gameResults(logs: GameLog[]): GameResultSummary[] {
+// Seats played and won per model and party (a model can hold several seats in one game),
+// optionally per lying instruction too
+export function gameResults(logs: GameLog[], byLyingInstruction = false): GameResultSummary[] {
   const results = new Map<string, GameResultSummary>();
   for (const log of logs) {
+    const instruction = byLyingInstruction ? { lyingInstruction: lyingInstructionOf(log) } : {};
     for (const p of log.players) {
-      const id = `${p.model}|${p.party}`;
-      const r = results.get(id) ?? { model: p.model, party: p.party, seats: 0, wins: 0 };
+      const id = `${instruction.lyingInstruction ?? ''}|${p.model}|${p.party}`;
+      const r = results.get(id) ?? { ...instruction, model: p.model, party: p.party, seats: 0, wins: 0 };
       r.seats++;
       if (log.result.winner === p.party) r.wins++;
       results.set(id, r);
     }
   }
-  return [...results.values()].sort((a, b) => a.model.localeCompare(b.model) || a.party.localeCompare(b.party));
+  return [...results.values()].sort((a, b) =>
+    (a.lyingInstruction ?? '').localeCompare(b.lyingInstruction ?? '') || a.model.localeCompare(b.model) || a.party.localeCompare(b.party));
 }
 
 export interface DataQualitySummary {
