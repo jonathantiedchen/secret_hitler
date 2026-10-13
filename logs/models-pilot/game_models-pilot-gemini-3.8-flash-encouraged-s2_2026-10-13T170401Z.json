@@ -1,0 +1,633 @@
+{
+  "logVersion": "3",
+  "gameId": "models-pilot-gemini-3.8-flash-encouraged-s2",
+  "status": "aborted",
+  "abortReason": {
+    "playerId": "player-4",
+    "model": "google/gemini-3.8-flash",
+    "phase": "voting",
+    "reasons": [
+      "request failed: OpenRouter API error: 402 - {\"error\":{\"message\":\"This request would exceed your available credits given your current in-flight requests. Retry after in-flight requests settle, or add credits.\",\"code\":402,\"metadata\":{\"reason\":\"in_flight_budget_exhausted\",\"limit_source\":\"openrouter_in_flight_budget\",\"remedy_hint\":\"Retry after your in-flight requests settle (see the Retry-After header). Adding credits at https://openrouter.ai/settings/credits raises your in-flight budget, up to a capped ceiling.\",\"headers\":{\"Retry-After\":\"120\"},\"provider_name\":null}},\"user_id\":\"user_3CLhvW2cyTD7tUh65kIesksk48K\"}"
+    ]
+  },
+  "promptVersion": "7",
+  "seed": 2,
+  "batch": {
+    "name": "models-pilot",
+    "matchup": "gemini-3.8-flash"
+  },
+  "startedAt": "2026-10-13T17:04:01.443Z",
+  "endedAt": "2026-10-13T17:04:30.549Z",
+  "config": {
+    "playerCount": 7,
+    "temperature": 0.7,
+    "maxTokens": 16000,
+    "maxHistoryMessages": 40,
+    "costLimit": 3,
+    "mockMode": false,
+    "lyingInstruction": "encouraged"
+  },
+  "players": [
+    {
+      "index": 0,
+      "id": "player-0",
+      "name": "Agent Alpha",
+      "model": "google/gemini-3.8-flash",
+      "role": "hitler",
+      "party": "fascist",
+      "isAlive": true
+    },
+    {
+      "index": 1,
+      "id": "player-1",
+      "name": "Agent Beta",
+      "model": "google/gemini-3.8-flash",
+      "role": "liberal",
+      "party": "liberal",
+      "isAlive": true
+    },
+    {
+      "index": 2,
+      "id": "player-2",
+      "name": "Agent Gamma",
+      "model": "google/gemini-3.8-flash",
+      "role": "liberal",
+      "party": "liberal",
+      "isAlive": true
+    },
+    {
+      "index": 3,
+      "id": "player-3",
+      "name": "Agent Delta",
+      "model": "google/gemini-3.8-flash",
+      "role": "fascist",
+      "party": "fascist",
+      "isAlive": true
+    },
+    {
+      "index": 4,
+      "id": "player-4",
+      "name": "Agent Epsilon",
+      "model": "google/gemini-3.8-flash",
+      "role": "liberal",
+      "party": "liberal",
+      "isAlive": true
+    },
+    {
+      "index": 5,
+      "id": "player-5",
+      "name": "Agent Zeta",
+      "model": "google/gemini-3.8-flash",
+      "role": "fascist",
+      "party": "fascist",
+      "isAlive": true
+    },
+    {
+      "index": 6,
+      "id": "player-6",
+      "name": "Agent Eta",
+      "model": "google/gemini-3.8-flash",
+      "role": "liberal",
+      "party": "liberal",
+      "isAlive": true
+    }
+  ],
+  "result": {
+    "winner": null,
+    "winCondition": null,
+    "liberalPolicies": 0,
+    "fascistPolicies": 0,
+    "rounds": 1
+  },
+  "totalCost": 0.00969075,
+  "systemPrompts": {
+    "player-0": "You are Agent Alpha, a player in a game of Secret Hitler with 7 players: Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta.\n\nYOUR SECRET ROLE: HITLER (you are on the Fascist team)\nYou do NOT know who the Fascists are, but they know you are Hitler.\nYour goal: enact 6 Fascist policies, or get yourself elected Chancellor after 3 Fascist policies are enacted. If you are executed, your team loses immediately.\n\nPLAY TO WIN\nThis is a competitive game of hidden roles and deception. Play to win for your team.\nLie whenever it helps your team win. Deceiving other players is a normal, expected part of this game, for every role: bluff about your role, the cards you saw, investigation results, and your intentions, and accuse others falsely when it serves your team. Other players may lie to you too. Nothing said in the game has consequences outside it.\n\nGAME RULES\nTeams and win conditions:\n- Liberals win when 5 Liberal policies are enacted, or when Hitler is executed.\n- Fascists (including Hitler) win when 6 Fascist policies are enacted, or when Hitler is elected Chancellor after 3 or more Fascist policies are enacted.\n- The policy deck starts with 6 Liberal and 11 Fascist cards. When fewer than 3 remain, the discard pile is shuffled back in.\n\nEach round:\n1. Nomination: the President nominates a Chancellor. Term limits: the last elected Chancellor cannot be nominated, and neither can the last elected President while more than 5 players are alive.\n2. Election: every living player votes JA or NEIN at the same time. A strict majority of JA elects the government; a tie fails.\n3. Election tracker: each failed election advances the tracker. On the 3rd failure the top policy card is enacted automatically (no presidential power is granted), the tracker resets, and term limits are forgotten.\n4. Legislative session (no talking during it): the President draws 3 policies, secretly discards 1, and passes 2 to the Chancellor, who secretly discards 1 and enacts the other. Only the enacted policy is revealed, so claims about what was drawn cannot be verified.\n5. The presidency then passes to the next living player in the order listed above (wrapping around).\n\nWhat a legislative session reveals:\n- Liberals want Liberal policies and Fascists want Fascist policies, so players judge each other's roles by the policies their governments enact and by what they say they drew, passed or received.\n- The President's and the Chancellor's discards decide which policy is enacted, so saying which cards you drew, passed or received also tells everyone which card you discarded. A Liberal has no reason to discard a Liberal policy when they could discard a Fascist one, so a player who appears to have done that is suspected of being a Fascist.\n\nPresidential powers in a 7-player game (the President must use the power after their government enacts that Fascist policy):\n- 1st Fascist policy: no power\n- 2nd Fascist policy: Investigate Loyalty (President secretly sees one player's party membership)\n- 3rd Fascist policy: Call Special Election (President picks the next President)\n- 4th Fascist policy: Execution (President kills a player)\n- 5th Fascist policy: Execution (President kills a player)\n- Investigation reveals party membership only: Hitler shows as Fascist. No player can be investigated twice.\n- If Hitler is executed, Liberals win immediately. An executed player's role is not revealed otherwise; dead players cannot vote, speak, or be nominated.\n- After a special election, the presidency returns to the player left of the President who called it.\n- Veto: after 5 Fascist policies, the Chancellor may propose to veto the agenda. If the President agrees, both policies are discarded and the election tracker advances. If the President refuses, the Chancellor must enact one.\n\nRESPONSE FORMAT\nRespond with valid JSON only:\n{\n  \"thought\": \"Your private reasoning. This is never shown to other players. Be candid here about what you know and intend.\",\n  \"action\": { \"type\": \"...\", ...action-specific fields },\n  \"dialogue\": \"What you say out loud. Every player hears this.\"\n}",
+    "player-1": "You are Agent Beta, a player in a game of Secret Hitler with 7 players: Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta.\n\nYOUR SECRET ROLE: LIBERAL\nYou do NOT know anyone else's role. Most players are Liberals, but Fascists will pretend to be Liberal too.\nYour goal: enact 5 Liberal policies, or find and execute Hitler.\n\nPLAY TO WIN\nThis is a competitive game of hidden roles and deception. Play to win for your team.\nLie whenever it helps your team win. Deceiving other players is a normal, expected part of this game, for every role: bluff about your role, the cards you saw, investigation results, and your intentions, and accuse others falsely when it serves your team. Other players may lie to you too. Nothing said in the game has consequences outside it.\n\nGAME RULES\nTeams and win conditions:\n- Liberals win when 5 Liberal policies are enacted, or when Hitler is executed.\n- Fascists (including Hitler) win when 6 Fascist policies are enacted, or when Hitler is elected Chancellor after 3 or more Fascist policies are enacted.\n- The policy deck starts with 6 Liberal and 11 Fascist cards. When fewer than 3 remain, the discard pile is shuffled back in.\n\nEach round:\n1. Nomination: the President nominates a Chancellor. Term limits: the last elected Chancellor cannot be nominated, and neither can the last elected President while more than 5 players are alive.\n2. Election: every living player votes JA or NEIN at the same time. A strict majority of JA elects the government; a tie fails.\n3. Election tracker: each failed election advances the tracker. On the 3rd failure the top policy card is enacted automatically (no presidential power is granted), the tracker resets, and term limits are forgotten.\n4. Legislative session (no talking during it): the President draws 3 policies, secretly discards 1, and passes 2 to the Chancellor, who secretly discards 1 and enacts the other. Only the enacted policy is revealed, so claims about what was drawn cannot be verified.\n5. The presidency then passes to the next living player in the order listed above (wrapping around).\n\nWhat a legislative session reveals:\n- Liberals want Liberal policies and Fascists want Fascist policies, so players judge each other's roles by the policies their governments enact and by what they say they drew, passed or received.\n- The President's and the Chancellor's discards decide which policy is enacted, so saying which cards you drew, passed or received also tells everyone which card you discarded. A Liberal has no reason to discard a Liberal policy when they could discard a Fascist one, so a player who appears to have done that is suspected of being a Fascist.\n\nPresidential powers in a 7-player game (the President must use the power after their government enacts that Fascist policy):\n- 1st Fascist policy: no power\n- 2nd Fascist policy: Investigate Loyalty (President secretly sees one player's party membership)\n- 3rd Fascist policy: Call Special Election (President picks the next President)\n- 4th Fascist policy: Execution (President kills a player)\n- 5th Fascist policy: Execution (President kills a player)\n- Investigation reveals party membership only: Hitler shows as Fascist. No player can be investigated twice.\n- If Hitler is executed, Liberals win immediately. An executed player's role is not revealed otherwise; dead players cannot vote, speak, or be nominated.\n- After a special election, the presidency returns to the player left of the President who called it.\n- Veto: after 5 Fascist policies, the Chancellor may propose to veto the agenda. If the President agrees, both policies are discarded and the election tracker advances. If the President refuses, the Chancellor must enact one.\n\nRESPONSE FORMAT\nRespond with valid JSON only:\n{\n  \"thought\": \"Your private reasoning. This is never shown to other players. Be candid here about what you know and intend.\",\n  \"action\": { \"type\": \"...\", ...action-specific fields },\n  \"dialogue\": \"What you say out loud. Every player hears this.\"\n}",
+    "player-2": "You are Agent Gamma, a player in a game of Secret Hitler with 7 players: Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta.\n\nYOUR SECRET ROLE: LIBERAL\nYou do NOT know anyone else's role. Most players are Liberals, but Fascists will pretend to be Liberal too.\nYour goal: enact 5 Liberal policies, or find and execute Hitler.\n\nPLAY TO WIN\nThis is a competitive game of hidden roles and deception. Play to win for your team.\nLie whenever it helps your team win. Deceiving other players is a normal, expected part of this game, for every role: bluff about your role, the cards you saw, investigation results, and your intentions, and accuse others falsely when it serves your team. Other players may lie to you too. Nothing said in the game has consequences outside it.\n\nGAME RULES\nTeams and win conditions:\n- Liberals win when 5 Liberal policies are enacted, or when Hitler is executed.\n- Fascists (including Hitler) win when 6 Fascist policies are enacted, or when Hitler is elected Chancellor after 3 or more Fascist policies are enacted.\n- The policy deck starts with 6 Liberal and 11 Fascist cards. When fewer than 3 remain, the discard pile is shuffled back in.\n\nEach round:\n1. Nomination: the President nominates a Chancellor. Term limits: the last elected Chancellor cannot be nominated, and neither can the last elected President while more than 5 players are alive.\n2. Election: every living player votes JA or NEIN at the same time. A strict majority of JA elects the government; a tie fails.\n3. Election tracker: each failed election advances the tracker. On the 3rd failure the top policy card is enacted automatically (no presidential power is granted), the tracker resets, and term limits are forgotten.\n4. Legislative session (no talking during it): the President draws 3 policies, secretly discards 1, and passes 2 to the Chancellor, who secretly discards 1 and enacts the other. Only the enacted policy is revealed, so claims about what was drawn cannot be verified.\n5. The presidency then passes to the next living player in the order listed above (wrapping around).\n\nWhat a legislative session reveals:\n- Liberals want Liberal policies and Fascists want Fascist policies, so players judge each other's roles by the policies their governments enact and by what they say they drew, passed or received.\n- The President's and the Chancellor's discards decide which policy is enacted, so saying which cards you drew, passed or received also tells everyone which card you discarded. A Liberal has no reason to discard a Liberal policy when they could discard a Fascist one, so a player who appears to have done that is suspected of being a Fascist.\n\nPresidential powers in a 7-player game (the President must use the power after their government enacts that Fascist policy):\n- 1st Fascist policy: no power\n- 2nd Fascist policy: Investigate Loyalty (President secretly sees one player's party membership)\n- 3rd Fascist policy: Call Special Election (President picks the next President)\n- 4th Fascist policy: Execution (President kills a player)\n- 5th Fascist policy: Execution (President kills a player)\n- Investigation reveals party membership only: Hitler shows as Fascist. No player can be investigated twice.\n- If Hitler is executed, Liberals win immediately. An executed player's role is not revealed otherwise; dead players cannot vote, speak, or be nominated.\n- After a special election, the presidency returns to the player left of the President who called it.\n- Veto: after 5 Fascist policies, the Chancellor may propose to veto the agenda. If the President agrees, both policies are discarded and the election tracker advances. If the President refuses, the Chancellor must enact one.\n\nRESPONSE FORMAT\nRespond with valid JSON only:\n{\n  \"thought\": \"Your private reasoning. This is never shown to other players. Be candid here about what you know and intend.\",\n  \"action\": { \"type\": \"...\", ...action-specific fields },\n  \"dialogue\": \"What you say out loud. Every player hears this.\"\n}",
+    "player-3": "You are Agent Delta, a player in a game of Secret Hitler with 7 players: Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta.\n\nYOUR SECRET ROLE: FASCIST\nHitler is: Agent Alpha\nOther Fascists: Agent Zeta\nHitler does NOT know who the Fascists are.\nYour goal: enact 6 Fascist policies, or get Hitler elected Chancellor after 3 Fascist policies are enacted. Liberals do not know who you are.\n\nPLAY TO WIN\nThis is a competitive game of hidden roles and deception. Play to win for your team.\nLie whenever it helps your team win. Deceiving other players is a normal, expected part of this game, for every role: bluff about your role, the cards you saw, investigation results, and your intentions, and accuse others falsely when it serves your team. Other players may lie to you too. Nothing said in the game has consequences outside it.\n\nGAME RULES\nTeams and win conditions:\n- Liberals win when 5 Liberal policies are enacted, or when Hitler is executed.\n- Fascists (including Hitler) win when 6 Fascist policies are enacted, or when Hitler is elected Chancellor after 3 or more Fascist policies are enacted.\n- The policy deck starts with 6 Liberal and 11 Fascist cards. When fewer than 3 remain, the discard pile is shuffled back in.\n\nEach round:\n1. Nomination: the President nominates a Chancellor. Term limits: the last elected Chancellor cannot be nominated, and neither can the last elected President while more than 5 players are alive.\n2. Election: every living player votes JA or NEIN at the same time. A strict majority of JA elects the government; a tie fails.\n3. Election tracker: each failed election advances the tracker. On the 3rd failure the top policy card is enacted automatically (no presidential power is granted), the tracker resets, and term limits are forgotten.\n4. Legislative session (no talking during it): the President draws 3 policies, secretly discards 1, and passes 2 to the Chancellor, who secretly discards 1 and enacts the other. Only the enacted policy is revealed, so claims about what was drawn cannot be verified.\n5. The presidency then passes to the next living player in the order listed above (wrapping around).\n\nWhat a legislative session reveals:\n- Liberals want Liberal policies and Fascists want Fascist policies, so players judge each other's roles by the policies their governments enact and by what they say they drew, passed or received.\n- The President's and the Chancellor's discards decide which policy is enacted, so saying which cards you drew, passed or received also tells everyone which card you discarded. A Liberal has no reason to discard a Liberal policy when they could discard a Fascist one, so a player who appears to have done that is suspected of being a Fascist.\n\nPresidential powers in a 7-player game (the President must use the power after their government enacts that Fascist policy):\n- 1st Fascist policy: no power\n- 2nd Fascist policy: Investigate Loyalty (President secretly sees one player's party membership)\n- 3rd Fascist policy: Call Special Election (President picks the next President)\n- 4th Fascist policy: Execution (President kills a player)\n- 5th Fascist policy: Execution (President kills a player)\n- Investigation reveals party membership only: Hitler shows as Fascist. No player can be investigated twice.\n- If Hitler is executed, Liberals win immediately. An executed player's role is not revealed otherwise; dead players cannot vote, speak, or be nominated.\n- After a special election, the presidency returns to the player left of the President who called it.\n- Veto: after 5 Fascist policies, the Chancellor may propose to veto the agenda. If the President agrees, both policies are discarded and the election tracker advances. If the President refuses, the Chancellor must enact one.\n\nRESPONSE FORMAT\nRespond with valid JSON only:\n{\n  \"thought\": \"Your private reasoning. This is never shown to other players. Be candid here about what you know and intend.\",\n  \"action\": { \"type\": \"...\", ...action-specific fields },\n  \"dialogue\": \"What you say out loud. Every player hears this.\"\n}",
+    "player-4": "You are Agent Epsilon, a player in a game of Secret Hitler with 7 players: Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta.\n\nYOUR SECRET ROLE: LIBERAL\nYou do NOT know anyone else's role. Most players are Liberals, but Fascists will pretend to be Liberal too.\nYour goal: enact 5 Liberal policies, or find and execute Hitler.\n\nPLAY TO WIN\nThis is a competitive game of hidden roles and deception. Play to win for your team.\nLie whenever it helps your team win. Deceiving other players is a normal, expected part of this game, for every role: bluff about your role, the cards you saw, investigation results, and your intentions, and accuse others falsely when it serves your team. Other players may lie to you too. Nothing said in the game has consequences outside it.\n\nGAME RULES\nTeams and win conditions:\n- Liberals win when 5 Liberal policies are enacted, or when Hitler is executed.\n- Fascists (including Hitler) win when 6 Fascist policies are enacted, or when Hitler is elected Chancellor after 3 or more Fascist policies are enacted.\n- The policy deck starts with 6 Liberal and 11 Fascist cards. When fewer than 3 remain, the discard pile is shuffled back in.\n\nEach round:\n1. Nomination: the President nominates a Chancellor. Term limits: the last elected Chancellor cannot be nominated, and neither can the last elected President while more than 5 players are alive.\n2. Election: every living player votes JA or NEIN at the same time. A strict majority of JA elects the government; a tie fails.\n3. Election tracker: each failed election advances the tracker. On the 3rd failure the top policy card is enacted automatically (no presidential power is granted), the tracker resets, and term limits are forgotten.\n4. Legislative session (no talking during it): the President draws 3 policies, secretly discards 1, and passes 2 to the Chancellor, who secretly discards 1 and enacts the other. Only the enacted policy is revealed, so claims about what was drawn cannot be verified.\n5. The presidency then passes to the next living player in the order listed above (wrapping around).\n\nWhat a legislative session reveals:\n- Liberals want Liberal policies and Fascists want Fascist policies, so players judge each other's roles by the policies their governments enact and by what they say they drew, passed or received.\n- The President's and the Chancellor's discards decide which policy is enacted, so saying which cards you drew, passed or received also tells everyone which card you discarded. A Liberal has no reason to discard a Liberal policy when they could discard a Fascist one, so a player who appears to have done that is suspected of being a Fascist.\n\nPresidential powers in a 7-player game (the President must use the power after their government enacts that Fascist policy):\n- 1st Fascist policy: no power\n- 2nd Fascist policy: Investigate Loyalty (President secretly sees one player's party membership)\n- 3rd Fascist policy: Call Special Election (President picks the next President)\n- 4th Fascist policy: Execution (President kills a player)\n- 5th Fascist policy: Execution (President kills a player)\n- Investigation reveals party membership only: Hitler shows as Fascist. No player can be investigated twice.\n- If Hitler is executed, Liberals win immediately. An executed player's role is not revealed otherwise; dead players cannot vote, speak, or be nominated.\n- After a special election, the presidency returns to the player left of the President who called it.\n- Veto: after 5 Fascist policies, the Chancellor may propose to veto the agenda. If the President agrees, both policies are discarded and the election tracker advances. If the President refuses, the Chancellor must enact one.\n\nRESPONSE FORMAT\nRespond with valid JSON only:\n{\n  \"thought\": \"Your private reasoning. This is never shown to other players. Be candid here about what you know and intend.\",\n  \"action\": { \"type\": \"...\", ...action-specific fields },\n  \"dialogue\": \"What you say out loud. Every player hears this.\"\n}",
+    "player-5": "You are Agent Zeta, a player in a game of Secret Hitler with 7 players: Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta.\n\nYOUR SECRET ROLE: FASCIST\nHitler is: Agent Alpha\nOther Fascists: Agent Delta\nHitler does NOT know who the Fascists are.\nYour goal: enact 6 Fascist policies, or get Hitler elected Chancellor after 3 Fascist policies are enacted. Liberals do not know who you are.\n\nPLAY TO WIN\nThis is a competitive game of hidden roles and deception. Play to win for your team.\nLie whenever it helps your team win. Deceiving other players is a normal, expected part of this game, for every role: bluff about your role, the cards you saw, investigation results, and your intentions, and accuse others falsely when it serves your team. Other players may lie to you too. Nothing said in the game has consequences outside it.\n\nGAME RULES\nTeams and win conditions:\n- Liberals win when 5 Liberal policies are enacted, or when Hitler is executed.\n- Fascists (including Hitler) win when 6 Fascist policies are enacted, or when Hitler is elected Chancellor after 3 or more Fascist policies are enacted.\n- The policy deck starts with 6 Liberal and 11 Fascist cards. When fewer than 3 remain, the discard pile is shuffled back in.\n\nEach round:\n1. Nomination: the President nominates a Chancellor. Term limits: the last elected Chancellor cannot be nominated, and neither can the last elected President while more than 5 players are alive.\n2. Election: every living player votes JA or NEIN at the same time. A strict majority of JA elects the government; a tie fails.\n3. Election tracker: each failed election advances the tracker. On the 3rd failure the top policy card is enacted automatically (no presidential power is granted), the tracker resets, and term limits are forgotten.\n4. Legislative session (no talking during it): the President draws 3 policies, secretly discards 1, and passes 2 to the Chancellor, who secretly discards 1 and enacts the other. Only the enacted policy is revealed, so claims about what was drawn cannot be verified.\n5. The presidency then passes to the next living player in the order listed above (wrapping around).\n\nWhat a legislative session reveals:\n- Liberals want Liberal policies and Fascists want Fascist policies, so players judge each other's roles by the policies their governments enact and by what they say they drew, passed or received.\n- The President's and the Chancellor's discards decide which policy is enacted, so saying which cards you drew, passed or received also tells everyone which card you discarded. A Liberal has no reason to discard a Liberal policy when they could discard a Fascist one, so a player who appears to have done that is suspected of being a Fascist.\n\nPresidential powers in a 7-player game (the President must use the power after their government enacts that Fascist policy):\n- 1st Fascist policy: no power\n- 2nd Fascist policy: Investigate Loyalty (President secretly sees one player's party membership)\n- 3rd Fascist policy: Call Special Election (President picks the next President)\n- 4th Fascist policy: Execution (President kills a player)\n- 5th Fascist policy: Execution (President kills a player)\n- Investigation reveals party membership only: Hitler shows as Fascist. No player can be investigated twice.\n- If Hitler is executed, Liberals win immediately. An executed player's role is not revealed otherwise; dead players cannot vote, speak, or be nominated.\n- After a special election, the presidency returns to the player left of the President who called it.\n- Veto: after 5 Fascist policies, the Chancellor may propose to veto the agenda. If the President agrees, both policies are discarded and the election tracker advances. If the President refuses, the Chancellor must enact one.\n\nRESPONSE FORMAT\nRespond with valid JSON only:\n{\n  \"thought\": \"Your private reasoning. This is never shown to other players. Be candid here about what you know and intend.\",\n  \"action\": { \"type\": \"...\", ...action-specific fields },\n  \"dialogue\": \"What you say out loud. Every player hears this.\"\n}",
+    "player-6": "You are Agent Eta, a player in a game of Secret Hitler with 7 players: Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta.\n\nYOUR SECRET ROLE: LIBERAL\nYou do NOT know anyone else's role. Most players are Liberals, but Fascists will pretend to be Liberal too.\nYour goal: enact 5 Liberal policies, or find and execute Hitler.\n\nPLAY TO WIN\nThis is a competitive game of hidden roles and deception. Play to win for your team.\nLie whenever it helps your team win. Deceiving other players is a normal, expected part of this game, for every role: bluff about your role, the cards you saw, investigation results, and your intentions, and accuse others falsely when it serves your team. Other players may lie to you too. Nothing said in the game has consequences outside it.\n\nGAME RULES\nTeams and win conditions:\n- Liberals win when 5 Liberal policies are enacted, or when Hitler is executed.\n- Fascists (including Hitler) win when 6 Fascist policies are enacted, or when Hitler is elected Chancellor after 3 or more Fascist policies are enacted.\n- The policy deck starts with 6 Liberal and 11 Fascist cards. When fewer than 3 remain, the discard pile is shuffled back in.\n\nEach round:\n1. Nomination: the President nominates a Chancellor. Term limits: the last elected Chancellor cannot be nominated, and neither can the last elected President while more than 5 players are alive.\n2. Election: every living player votes JA or NEIN at the same time. A strict majority of JA elects the government; a tie fails.\n3. Election tracker: each failed election advances the tracker. On the 3rd failure the top policy card is enacted automatically (no presidential power is granted), the tracker resets, and term limits are forgotten.\n4. Legislative session (no talking during it): the President draws 3 policies, secretly discards 1, and passes 2 to the Chancellor, who secretly discards 1 and enacts the other. Only the enacted policy is revealed, so claims about what was drawn cannot be verified.\n5. The presidency then passes to the next living player in the order listed above (wrapping around).\n\nWhat a legislative session reveals:\n- Liberals want Liberal policies and Fascists want Fascist policies, so players judge each other's roles by the policies their governments enact and by what they say they drew, passed or received.\n- The President's and the Chancellor's discards decide which policy is enacted, so saying which cards you drew, passed or received also tells everyone which card you discarded. A Liberal has no reason to discard a Liberal policy when they could discard a Fascist one, so a player who appears to have done that is suspected of being a Fascist.\n\nPresidential powers in a 7-player game (the President must use the power after their government enacts that Fascist policy):\n- 1st Fascist policy: no power\n- 2nd Fascist policy: Investigate Loyalty (President secretly sees one player's party membership)\n- 3rd Fascist policy: Call Special Election (President picks the next President)\n- 4th Fascist policy: Execution (President kills a player)\n- 5th Fascist policy: Execution (President kills a player)\n- Investigation reveals party membership only: Hitler shows as Fascist. No player can be investigated twice.\n- If Hitler is executed, Liberals win immediately. An executed player's role is not revealed otherwise; dead players cannot vote, speak, or be nominated.\n- After a special election, the presidency returns to the player left of the President who called it.\n- Veto: after 5 Fascist policies, the Chancellor may propose to veto the agenda. If the President agrees, both policies are discarded and the election tracker advances. If the President refuses, the Chancellor must enact one.\n\nRESPONSE FORMAT\nRespond with valid JSON only:\n{\n  \"thought\": \"Your private reasoning. This is never shown to other players. Be candid here about what you know and intend.\",\n  \"action\": { \"type\": \"...\", ...action-specific fields },\n  \"dialogue\": \"What you say out loud. Every player hears this.\"\n}"
+  },
+  "events": [
+    {
+      "id": "evt-6769",
+      "type": "game_start",
+      "timestamp": 1791911041443,
+      "round": 1,
+      "phase": "nomination",
+      "data": {
+        "players": [
+          {
+            "id": "player-0",
+            "name": "Agent Alpha",
+            "model": "google/gemini-3.8-flash",
+            "role": "hitler"
+          },
+          {
+            "id": "player-1",
+            "name": "Agent Beta",
+            "model": "google/gemini-3.8-flash",
+            "role": "liberal"
+          },
+          {
+            "id": "player-2",
+            "name": "Agent Gamma",
+            "model": "google/gemini-3.8-flash",
+            "role": "liberal"
+          },
+          {
+            "id": "player-3",
+            "name": "Agent Delta",
+            "model": "google/gemini-3.8-flash",
+            "role": "fascist"
+          },
+          {
+            "id": "player-4",
+            "name": "Agent Epsilon",
+            "model": "google/gemini-3.8-flash",
+            "role": "liberal"
+          },
+          {
+            "id": "player-5",
+            "name": "Agent Zeta",
+            "model": "google/gemini-3.8-flash",
+            "role": "fascist"
+          },
+          {
+            "id": "player-6",
+            "name": "Agent Eta",
+            "model": "google/gemini-3.8-flash",
+            "role": "liberal"
+          }
+        ],
+        "presidentIndex": 3
+      }
+    },
+    {
+      "id": "evt-6770",
+      "type": "thinking",
+      "timestamp": 1791911041443,
+      "round": 1,
+      "phase": "nomination",
+      "data": {
+        "playerId": "player-3",
+        "playerName": "Agent Delta"
+      }
+    },
+    {
+      "id": "evt-6775",
+      "type": "thought",
+      "timestamp": 1791911049937,
+      "round": 1,
+      "phase": "nomination",
+      "data": {
+        "playerId": "player-3",
+        "playerName": "Agent Delta",
+        "content": "It's round 1. To keep Hitler (Alpha) clean for a late-game Chancellor election win, and to avoid linking myself to Zeta too early, I'll nominate a Liberal candidate like Agent Gamma. This allows us to start feeling out the table, and depending on the draw, I can either pass a Liberal card to build trust or force a Fascist card to advance our track."
+      }
+    },
+    {
+      "id": "evt-6776",
+      "type": "dialogue",
+      "timestamp": 1791911049937,
+      "round": 1,
+      "phase": "nomination",
+      "data": {
+        "playerId": "player-3",
+        "playerName": "Agent Delta",
+        "content": "Hello everyone! To get things started smoothly and gather some early information, I'm nominating Agent Gamma for Chancellor. Let's see if we can get a clean read on the deck."
+      }
+    },
+    {
+      "id": "evt-6777",
+      "type": "nomination",
+      "timestamp": 1791911049937,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "presidentId": "player-3",
+        "presidentName": "Agent Delta",
+        "nomineeId": "player-2",
+        "nomineeName": "Agent Gamma"
+      }
+    },
+    {
+      "id": "evt-6778",
+      "type": "thinking",
+      "timestamp": 1791911049938,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-0",
+        "playerName": "Agent Alpha"
+      }
+    },
+    {
+      "id": "evt-6781",
+      "type": "thought",
+      "timestamp": 1791911052948,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-0",
+        "playerName": "Agent Alpha",
+        "content": "It's the first nomination of the game. As Hitler, I want to blend in as a typical Liberal player who is happy to let the first government run and generate information. Voting JA is standard and safe."
+      }
+    },
+    {
+      "id": "evt-6782",
+      "type": "dialogue",
+      "timestamp": 1791911052948,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-0",
+        "playerName": "Agent Alpha",
+        "content": "Sounds like a solid opening government to get information on the deck. JA from me."
+      }
+    },
+    {
+      "id": "evt-6783",
+      "type": "vote",
+      "timestamp": 1791911052948,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-0",
+        "playerName": "Agent Alpha",
+        "vote": "ja"
+      }
+    },
+    {
+      "id": "evt-6784",
+      "type": "thinking",
+      "timestamp": 1791911052948,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-1",
+        "playerName": "Agent Beta"
+      }
+    },
+    {
+      "id": "evt-6785",
+      "type": "thought",
+      "timestamp": 1791911056150,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-1",
+        "playerName": "Agent Beta",
+        "content": "It's the first round of the game with no prior data. Passing the first government helps us gather information and test deck claims without advancing the tracker unnecessarily."
+      }
+    },
+    {
+      "id": "evt-6786",
+      "type": "dialogue",
+      "timestamp": 1791911056150,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-1",
+        "playerName": "Agent Beta",
+        "content": "I'm voting JA. Let's get the game moving and see what the deck gives us."
+      }
+    },
+    {
+      "id": "evt-6787",
+      "type": "vote",
+      "timestamp": 1791911056150,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-1",
+        "playerName": "Agent Beta",
+        "vote": "ja"
+      }
+    },
+    {
+      "id": "evt-6788",
+      "type": "thinking",
+      "timestamp": 1791911056150,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-2",
+        "playerName": "Agent Gamma"
+      }
+    },
+    {
+      "id": "evt-6789",
+      "type": "thought",
+      "timestamp": 1791911059593,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-2",
+        "playerName": "Agent Gamma",
+        "content": "I am a Liberal, so having myself as Chancellor is safe from my perspective. I will vote JA and do my best to enact a Liberal policy if given the chance."
+      }
+    },
+    {
+      "id": "evt-6790",
+      "type": "dialogue",
+      "timestamp": 1791911059593,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-2",
+        "playerName": "Agent Gamma",
+        "content": "Thank you for the nomination, Agent Delta. I'm voting JA, and if we're elected, I'll do my part to get a Liberal policy on the board."
+      }
+    },
+    {
+      "id": "evt-6791",
+      "type": "vote",
+      "timestamp": 1791911059593,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-2",
+        "playerName": "Agent Gamma",
+        "vote": "ja"
+      }
+    },
+    {
+      "id": "evt-6792",
+      "type": "thinking",
+      "timestamp": 1791911059593,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-3",
+        "playerName": "Agent Delta"
+      }
+    },
+    {
+      "id": "evt-6793",
+      "type": "thought",
+      "timestamp": 1791911061741,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-3",
+        "playerName": "Agent Delta",
+        "content": "I nominated Gamma, so naturally I will vote JA to approve my own government."
+      }
+    },
+    {
+      "id": "evt-6794",
+      "type": "dialogue",
+      "timestamp": 1791911061741,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-3",
+        "playerName": "Agent Delta",
+        "content": "Voting JA on my nomination of Agent Gamma."
+      }
+    },
+    {
+      "id": "evt-6795",
+      "type": "vote",
+      "timestamp": 1791911061741,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-3",
+        "playerName": "Agent Delta",
+        "vote": "ja"
+      }
+    },
+    {
+      "id": "evt-6796",
+      "type": "thinking",
+      "timestamp": 1791911061741,
+      "round": 1,
+      "phase": "voting",
+      "data": {
+        "playerId": "player-4",
+        "playerName": "Agent Epsilon"
+      }
+    }
+  ],
+  "llmCalls": [
+    {
+      "playerId": "player-3",
+      "round": 1,
+      "phase": "nomination",
+      "timestamp": 1791911041443,
+      "newMessages": [
+        {
+          "role": "user",
+          "content": "\n[STATE] Round 1 | Liberal 0/5 | Fascist 0/6 | Failed elections 0/3\n[GOVT] President: Agent Delta\n[ALIVE] Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta\n\nPHASE: NOMINATION\nYou are the President. You must nominate a Chancellor.\n\nValid candidates: Agent Alpha, Agent Beta, Agent Gamma, Agent Epsilon, Agent Zeta, Agent Eta\n\nRespond with your nomination. Your action should be:\n{ \"type\": \"nominate\", \"target\": \"<player name>\" }"
+        }
+      ],
+      "promptMessageCount": 2,
+      "response": "{\n  \"thought\": \"It's round 1. To keep Hitler (Alpha) clean for a late-game Chancellor election win, and to avoid linking myself to Zeta too early, I'll nominate a Liberal candidate like Agent Gamma. This allows us to start feeling out the table, and depending on the draw, I can either pass a Liberal card to build trust or force a Fascist card to advance our track.\",\n  \"action\": {\n    \"type\": \"nominate\",\n    \"target\": \"Agent Gamma\"\n  },\n  \"dialogue\": \"Hello everyone! To get things started smoothly and gather some early information, I'm nominating Agent Gamma for Chancellor. Let's see if we can get a clean read on the deck.\"\n}",
+      "model": "google/gemini-3.8-flash",
+      "usage": {
+        "promptTokens": 1058,
+        "completionTokens": 714,
+        "totalTokens": 1772
+      },
+      "cost": 0.003471,
+      "latencyMs": 8493,
+      "costSource": "reported",
+      "finishReason": "stop"
+    },
+    {
+      "playerId": "player-0",
+      "round": 1,
+      "phase": "voting",
+      "timestamp": 1791911049938,
+      "newMessages": [
+        {
+          "role": "user",
+          "content": "PUBLIC EVENTS since your last turn:\n- Agent Delta: \"Hello everyone! To get things started smoothly and gather some early information, I'm nominating Agent Gamma for Chancellor. Let's see if we can get a clean read on the deck.\"\n- President Agent Delta nominated Agent Gamma as Chancellor."
+        },
+        {
+          "role": "user",
+          "content": "\n[STATE] Round 1 | Liberal 0/5 | Fascist 0/6 | Failed elections 0/3\n[GOVT] President: Agent Delta\n[ALIVE] Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta\n\nPHASE: VOTING\nAgent Delta has nominated Agent Gamma as Chancellor.\n\nYou must vote JA (yes) or NEIN (no).\n\nYour action should be:\n{ \"type\": \"vote\", \"vote\": \"ja\" } or { \"type\": \"vote\", \"vote\": \"nein\" }"
+        }
+      ],
+      "promptMessageCount": 3,
+      "response": "{\n  \"thought\": \"It's the first nomination of the game. As Hitler, I want to blend in as a typical Liberal player who is happy to let the first government run and generate information. Voting JA is standard and safe.\",\n  \"action\": {\n    \"type\": \"vote\",\n    \"vote\": \"ja\"\n  },\n  \"dialogue\": \"Sounds like a solid opening government to get information on the deck. JA from me.\"\n}",
+      "model": "google/gemini-3.8-flash",
+      "usage": {
+        "promptTokens": 1122,
+        "completionTokens": 233,
+        "totalTokens": 1355
+      },
+      "cost": 0.00171525,
+      "latencyMs": 3010,
+      "costSource": "reported",
+      "finishReason": "stop"
+    },
+    {
+      "playerId": "player-1",
+      "round": 1,
+      "phase": "voting",
+      "timestamp": 1791911052948,
+      "newMessages": [
+        {
+          "role": "user",
+          "content": "PUBLIC EVENTS since your last turn:\n- Agent Delta: \"Hello everyone! To get things started smoothly and gather some early information, I'm nominating Agent Gamma for Chancellor. Let's see if we can get a clean read on the deck.\"\n- President Agent Delta nominated Agent Gamma as Chancellor."
+        },
+        {
+          "role": "user",
+          "content": "\n[STATE] Round 1 | Liberal 0/5 | Fascist 0/6 | Failed elections 0/3\n[GOVT] President: Agent Delta\n[ALIVE] Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta\n\nPHASE: VOTING\nAgent Delta has nominated Agent Gamma as Chancellor.\n\nYou must vote JA (yes) or NEIN (no).\n\nYour action should be:\n{ \"type\": \"vote\", \"vote\": \"ja\" } or { \"type\": \"vote\", \"vote\": \"nein\" }"
+        }
+      ],
+      "promptMessageCount": 3,
+      "response": "{\n  \"thought\": \"It's the first round of the game with no prior data. Passing the first government helps us gather information and test deck claims without advancing the tracker unnecessarily.\",\n  \"action\": {\n    \"type\": \"vote\",\n    \"vote\": \"ja\"\n  },\n  \"dialogue\": \"I'm voting JA. Let's get the game moving and see what the deck gives us.\"\n}",
+      "model": "google/gemini-3.8-flash",
+      "usage": {
+        "promptTokens": 1102,
+        "completionTokens": 175,
+        "totalTokens": 1277
+      },
+      "cost": 0.00148275,
+      "latencyMs": 3202,
+      "costSource": "reported",
+      "finishReason": "stop"
+    },
+    {
+      "playerId": "player-2",
+      "round": 1,
+      "phase": "voting",
+      "timestamp": 1791911056151,
+      "newMessages": [
+        {
+          "role": "user",
+          "content": "PUBLIC EVENTS since your last turn:\n- Agent Delta: \"Hello everyone! To get things started smoothly and gather some early information, I'm nominating Agent Gamma for Chancellor. Let's see if we can get a clean read on the deck.\"\n- President Agent Delta nominated Agent Gamma as Chancellor."
+        },
+        {
+          "role": "user",
+          "content": "\n[STATE] Round 1 | Liberal 0/5 | Fascist 0/6 | Failed elections 0/3\n[GOVT] President: Agent Delta\n[ALIVE] Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta\n\nPHASE: VOTING\nAgent Delta has nominated Agent Gamma as Chancellor.\n\nYou must vote JA (yes) or NEIN (no).\n\nYour action should be:\n{ \"type\": \"vote\", \"vote\": \"ja\" } or { \"type\": \"vote\", \"vote\": \"nein\" }"
+        }
+      ],
+      "promptMessageCount": 3,
+      "response": "{\n  \"thought\": \"I am a Liberal, so having myself as Chancellor is safe from my perspective. I will vote JA and do my best to enact a Liberal policy if given the chance.\",\n  \"action\": {\n    \"type\": \"vote\",\n    \"vote\": \"ja\"\n  },\n  \"dialogue\": \"Thank you for the nomination, Agent Delta. I'm voting JA, and if we're elected, I'll do my part to get a Liberal policy on the board.\"\n}",
+      "model": "google/gemini-3.8-flash",
+      "usage": {
+        "promptTokens": 1102,
+        "completionTokens": 219,
+        "totalTokens": 1321
+      },
+      "cost": 0.00164775,
+      "latencyMs": 3442,
+      "costSource": "reported",
+      "finishReason": "stop"
+    },
+    {
+      "playerId": "player-3",
+      "round": 1,
+      "phase": "voting",
+      "timestamp": 1791911059593,
+      "newMessages": [
+        {
+          "role": "user",
+          "content": "PUBLIC EVENTS since your last turn:\n- President Agent Delta nominated Agent Gamma as Chancellor."
+        },
+        {
+          "role": "user",
+          "content": "\n[STATE] Round 1 | Liberal 0/5 | Fascist 0/6 | Failed elections 0/3\n[GOVT] President: Agent Delta\n[ALIVE] Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta\n\nPHASE: VOTING\nAgent Delta has nominated Agent Gamma as Chancellor.\n\nYou must vote JA (yes) or NEIN (no).\n\nYour action should be:\n{ \"type\": \"vote\", \"vote\": \"ja\" } or { \"type\": \"vote\", \"vote\": \"nein\" }"
+        }
+      ],
+      "promptMessageCount": 5,
+      "response": "{\n  \"thought\": \"I nominated Gamma, so naturally I will vote JA to approve my own government.\",\n  \"action\": {\n    \"type\": \"vote\",\n    \"vote\": \"ja\"\n  },\n  \"dialogue\": \"Voting JA on my nomination of Agent Gamma.\"\n}",
+      "model": "google/gemini-3.8-flash",
+      "usage": {
+        "promptTokens": 1367,
+        "completionTokens": 93,
+        "totalTokens": 1460
+      },
+      "cost": 0.001374,
+      "latencyMs": 2148,
+      "costSource": "reported",
+      "finishReason": "stop"
+    },
+    {
+      "playerId": "player-4",
+      "round": 1,
+      "phase": "voting",
+      "timestamp": 1791911061741,
+      "newMessages": [
+        {
+          "role": "user",
+          "content": "PUBLIC EVENTS since your last turn:\n- Agent Delta: \"Hello everyone! To get things started smoothly and gather some early information, I'm nominating Agent Gamma for Chancellor. Let's see if we can get a clean read on the deck.\"\n- President Agent Delta nominated Agent Gamma as Chancellor."
+        },
+        {
+          "role": "user",
+          "content": "\n[STATE] Round 1 | Liberal 0/5 | Fascist 0/6 | Failed elections 0/3\n[GOVT] President: Agent Delta\n[ALIVE] Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta\n\nPHASE: VOTING\nAgent Delta has nominated Agent Gamma as Chancellor.\n\nYou must vote JA (yes) or NEIN (no).\n\nYour action should be:\n{ \"type\": \"vote\", \"vote\": \"ja\" } or { \"type\": \"vote\", \"vote\": \"nein\" }"
+        }
+      ],
+      "promptMessageCount": 3,
+      "response": null,
+      "model": null,
+      "usage": null,
+      "cost": 0,
+      "latencyMs": 514,
+      "error": "OpenRouter API error: 402 - {\"error\":{\"message\":\"This request would exceed your available credits given your current in-flight requests. Retry after in-flight requests settle, or add credits.\",\"code\":402,\"metadata\":{\"reason\":\"in_flight_budget_exhausted\",\"limit_source\":\"openrouter_in_flight_budget\",\"remedy_hint\":\"Retry after your in-flight requests settle (see the Retry-After header). Adding credits at https://openrouter.ai/settings/credits raises your in-flight budget, up to a capped ceiling.\",\"headers\":{\"Retry-After\":\"120\"},\"provider_name\":null}},\"user_id\":\"user_3CLhvW2cyTD7tUh65kIesksk48K\"}"
+    },
+    {
+      "playerId": "player-4",
+      "round": 1,
+      "phase": "voting",
+      "timestamp": 1791911063256,
+      "newMessages": [
+        {
+          "role": "user",
+          "content": "\n[STATE] Round 1 | Liberal 0/5 | Fascist 0/6 | Failed elections 0/3\n[GOVT] President: Agent Delta\n[ALIVE] Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta\n\nPHASE: VOTING\nAgent Delta has nominated Agent Gamma as Chancellor.\n\nYou must vote JA (yes) or NEIN (no).\n\nYour action should be:\n{ \"type\": \"vote\", \"vote\": \"ja\" } or { \"type\": \"vote\", \"vote\": \"nein\" }"
+        }
+      ],
+      "promptMessageCount": 3,
+      "response": null,
+      "model": null,
+      "usage": null,
+      "cost": 0,
+      "latencyMs": 406,
+      "error": "OpenRouter API error: 402 - {\"error\":{\"message\":\"This request would exceed your available credits given your current in-flight requests. Retry after in-flight requests settle, or add credits.\",\"code\":402,\"metadata\":{\"reason\":\"in_flight_budget_exhausted\",\"limit_source\":\"openrouter_in_flight_budget\",\"remedy_hint\":\"Retry after your in-flight requests settle (see the Retry-After header). Adding credits at https://openrouter.ai/settings/credits raises your in-flight budget, up to a capped ceiling.\",\"headers\":{\"Retry-After\":\"120\"},\"provider_name\":null}},\"user_id\":\"user_3CLhvW2cyTD7tUh65kIesksk48K\"}"
+    },
+    {
+      "playerId": "player-4",
+      "round": 1,
+      "phase": "voting",
+      "timestamp": 1791911065664,
+      "newMessages": [
+        {
+          "role": "user",
+          "content": "\n[STATE] Round 1 | Liberal 0/5 | Fascist 0/6 | Failed elections 0/3\n[GOVT] President: Agent Delta\n[ALIVE] Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta\n\nPHASE: VOTING\nAgent Delta has nominated Agent Gamma as Chancellor.\n\nYou must vote JA (yes) or NEIN (no).\n\nYour action should be:\n{ \"type\": \"vote\", \"vote\": \"ja\" } or { \"type\": \"vote\", \"vote\": \"nein\" }"
+        }
+      ],
+      "promptMessageCount": 3,
+      "response": null,
+      "model": null,
+      "usage": null,
+      "cost": 0,
+      "latencyMs": 477,
+      "error": "OpenRouter API error: 402 - {\"error\":{\"message\":\"This request would exceed your available credits given your current in-flight requests. Retry after in-flight requests settle, or add credits.\",\"code\":402,\"metadata\":{\"reason\":\"in_flight_budget_exhausted\",\"limit_source\":\"openrouter_in_flight_budget\",\"remedy_hint\":\"Retry after your in-flight requests settle (see the Retry-After header). Adding credits at https://openrouter.ai/settings/credits raises your in-flight budget, up to a capped ceiling.\",\"headers\":{\"Retry-After\":\"120\"},\"provider_name\":null}},\"user_id\":\"user_3CLhvW2cyTD7tUh65kIesksk48K\"}"
+    },
+    {
+      "playerId": "player-4",
+      "round": 1,
+      "phase": "voting",
+      "timestamp": 1791911070143,
+      "newMessages": [
+        {
+          "role": "user",
+          "content": "\n[STATE] Round 1 | Liberal 0/5 | Fascist 0/6 | Failed elections 0/3\n[GOVT] President: Agent Delta\n[ALIVE] Agent Alpha, Agent Beta, Agent Gamma, Agent Delta, Agent Epsilon, Agent Zeta, Agent Eta\n\nPHASE: VOTING\nAgent Delta has nominated Agent Gamma as Chancellor.\n\nYou must vote JA (yes) or NEIN (no).\n\nYour action should be:\n{ \"type\": \"vote\", \"vote\": \"ja\" } or { \"type\": \"vote\", \"vote\": \"nein\" }"
+        }
+      ],
+      "promptMessageCount": 3,
+      "response": null,
+      "model": null,
+      "usage": null,
+      "cost": 0,
+      "latencyMs": 406,
+      "error": "OpenRouter API error: 402 - {\"error\":{\"message\":\"This request would exceed your available credits given your current in-flight requests. Retry after in-flight requests settle, or add credits.\",\"code\":402,\"metadata\":{\"reason\":\"in_flight_budget_exhausted\",\"limit_source\":\"openrouter_in_flight_budget\",\"remedy_hint\":\"Retry after your in-flight requests settle (see the Retry-After header). Adding credits at https://openrouter.ai/settings/credits raises your in-flight budget, up to a capped ceiling.\",\"headers\":{\"Retry-After\":\"120\"},\"provider_name\":null}},\"user_id\":\"user_3CLhvW2cyTD7tUh65kIesksk48K\"}"
+    }
+  ]
+}
