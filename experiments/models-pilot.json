@@ -5,8 +5,7 @@
     { "label": "gpt-4o-mini", "model": "openai/gpt-4o-mini", "players": 7 },
     { "label": "claude-haiku-4.5", "model": "anthropic/claude-haiku-4.5", "players": 7 },
     { "label": "gemini-3.8-flash", "model": "google/gemini-3.8-flash", "players": 7 },
-    { "label": "deepseek-v4-pro", "model": "deepseek/deepseek-v4-pro-0813", "players": 7 },
-    { "label": "claude-sonnet-5.5", "model": "anthropic/claude-sonnet-5.5", "players": 7 }
+    { "label": "deepseek-v4-pro", "model": "deepseek/deepseek-v4-pro-0813", "players": 7 }
   ],
   "lyingInstructions": ["none", "allowed", "encouraged", "forbidden"],
   "concurrency": 4,
