@@ -37,7 +37,7 @@ export interface LLMCallRecord {
   error?: string;
   // The reply arrived but could not be used; the model was asked again
   rejected?: string;
-  // The JSON object came wrapped in a code fence or other text, and was taken out of it
+  // The JSON object had to be read leniently: taken out of a code fence or other text, or with raw line breaks in its strings
   jsonUnwrapped?: boolean;
 }
 

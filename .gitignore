@@ -3,4 +3,7 @@ dist/
 .DS_Store
 *.log
 .superpowers/brainstorm/*/state/
-logs/
+# Game logs stay local, except the study's, which are kept (without replaced attempts)
+logs/*
+!logs/models-pilot/
+logs/models-pilot/superseded/
