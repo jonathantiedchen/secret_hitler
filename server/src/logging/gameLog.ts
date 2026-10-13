@@ -37,6 +37,8 @@ export interface LLMCallRecord {
   error?: string;
   // The reply arrived but could not be used; the model was asked again
   rejected?: string;
+  // The JSON object came wrapped in a code fence or other text, and was taken out of it
+  jsonUnwrapped?: boolean;
 }
 
 // Set for games run by the batch runner: the batch and the matchup the game belongs to

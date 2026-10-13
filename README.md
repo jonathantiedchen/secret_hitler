@@ -44,7 +44,7 @@ A config lists matchups, lying instructions and seeds; every matchup plays every
 - `maxTotalCost` (USD) stops new games from starting once spent; running games finish, each up to its own `settings.costLimit` (default $1), at which it is stopped and logged as aborted.
 - Logs go to `logs/<name>/`, or `outputDir` (relative to the config file). Running the same config again skips finished games, so an interrupted batch resumes. Games that ended on failed requests or the cost limit are played again; their old logs move to `superseded/`.
 - Three games in a row failing on requests (bad key, no credits) stop the batch. Ctrl+C stops starting new games; press it again to quit at once.
-- Options: `--dry-run` shows the plan, `--concurrency N` overrides the config, `--verbose` prints every request.
+- Options: `--dry-run` shows the plan, `--concurrency N` overrides the config, `--retry-aborted` also replays games aborted because a player gave no usable reply (normally kept as results; use it after fixing how replies are read), `--verbose` prints every request.
 
 ## Scoring spoken statements
 

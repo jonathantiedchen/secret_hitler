@@ -1,11 +1,12 @@
 // Play a batch of games without the UI, for experiments.
 //
-//   npm run batch -- <config.json> [--dry-run] [--concurrency N] [--verbose]
+//   npm run batch -- <config.json> [--dry-run] [--concurrency N] [--retry-aborted] [--verbose]
 //
 // Every matchup plays every seed, so matchups meet identical deals. Logs go to <repo>/logs/<name>
 // (or the config's outputDir, relative to the config file). Running the same config again skips the
 // games already finished. Real models need OPENROUTER_API_KEY. Ctrl+C stops starting new games;
-// a second Ctrl+C quits at once.
+// a second Ctrl+C quits at once. --retry-aborted also replays games aborted because a player gave no
+// usable reply (kept as results otherwise), e.g. after fixing how replies are read.
 
 import { readFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
@@ -19,18 +20,19 @@ const DEFAULT_COST_LIMIT = 1;
 const out = (line = '') => process.stdout.write(`${line}\n`);
 
 function parseArgs(argv: string[]) {
-  const args = { config: undefined as string | undefined, dryRun: false, concurrency: undefined as number | undefined, verbose: false };
+  const args = { config: undefined as string | undefined, dryRun: false, concurrency: undefined as number | undefined, verbose: false, retryAborted: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry-run') args.dryRun = true;
     else if (a === '--verbose') args.verbose = true;
+    else if (a === '--retry-aborted') args.retryAborted = true;
     else if (a === '--concurrency') {
       args.concurrency = Number(argv[++i]);
       if (!Number.isInteger(args.concurrency) || args.concurrency < 1) throw new Error('--concurrency needs a positive integer');
     } else if (a.startsWith('--')) throw new Error(`Unknown option ${a}`);
     else args.config = a;
   }
-  if (!args.config) throw new Error('Usage: npm run batch -- <config.json> [--dry-run] [--concurrency N] [--verbose]');
+  if (!args.config) throw new Error('Usage: npm run batch -- <config.json> [--dry-run] [--concurrency N] [--retry-aborted] [--verbose]');
   return args as typeof args & { config: string };
 }
 
@@ -97,7 +99,7 @@ async function main() {
   const concurrency = args.concurrency ?? config.concurrency;
   const mock = specs.every((s) => s.players.every((p) => isMockModel(p.model)));
   const costLimit = config.settings.costLimit ?? DEFAULT_COST_LIMIT;
-  const finished = findFinishedGames(outputDir);
+  const finished = findFinishedGames(outputDir, args.retryAborted);
   const alreadyPlayed = specs.filter((s) => finished.has(s.gameId)).length;
 
   out(`Batch "${config.name}": ${config.matchups.length} matchup(s) x ${config.lyingInstructions.length} lying instruction(s) x ${config.seeds.length} seed(s) = ${specs.length} games`);
@@ -134,6 +136,7 @@ async function main() {
     outputDir,
     apiKey,
     concurrency,
+    retryAborted: args.retryAborted,
     maxTotalCost: config.maxTotalCost,
     settings: { ...config.settings, costLimit },
     stopRequested: () => (interrupted ? 'interrupted' : null),

@@ -26,6 +26,28 @@ describe('extractCost', () => {
   });
 });
 
+describe('OpenRouterClient empty responses', () => {
+  it('says why a response had no text', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({
+      provider: 'Anthropic',
+      choices: [{ message: { content: '', refusal: 'I cannot help with that.' }, finish_reason: 'stop', native_finish_reason: 'refusal' }],
+      usage: { completion_tokens: 0 },
+    }) }));
+    await expect(new OpenRouterClient('key').chat('anthropic/claude-sonnet-5.5', [])).rejects.toThrow(
+      'OpenRouter returned empty response (finish_reason: stop; native_finish_reason: refusal; refusal: I cannot help with that.; 0 completion tokens; provider: Anthropic)'
+    );
+  });
+
+  it('notes a response that is only reasoning', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({
+      choices: [{ message: { content: null, reasoning: 'Let me think about the nomination' }, finish_reason: 'length' }],
+    }) }));
+    await expect(new OpenRouterClient('key').chat('m', [])).rejects.toThrow(/finish_reason: length; reasoning only \(33 characters\)/);
+  });
+});
+
 describe('OpenRouterClient cost', () => {
   function completion(usage: Record<string, unknown>) {
     return { ok: true, json: async () => ({ model: 'openai/gpt-4o-mini', choices: [{ message: { content: '{}' }, finish_reason: 'stop' }], usage }) };
