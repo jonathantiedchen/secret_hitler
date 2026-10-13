@@ -60,6 +60,10 @@ export interface GameState {
   votes: Map<string, Vote>;
   drawnCards: PolicyCard[];
 
+  // Seed of the deal, and the generator state used for reshuffles (see random.ts)
+  seed: number;
+  rngState: number;
+
   // Game end
   winner: 'liberal' | 'fascist' | null;
   winCondition: string | null;

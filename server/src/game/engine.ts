@@ -8,6 +8,7 @@ import type {
   ExecutiveAction,
 } from './types.js';
 import { getRoleDistribution, getExecutiveAction } from './types.js';
+import { randomSeed, nextInt, shuffle } from './random.js';
 
 export interface GameEvent {
   type: string;
@@ -15,39 +16,24 @@ export interface GameEvent {
   timestamp: number;
 }
 
-// Create a shuffled policy deck (6 Liberal, 11 Fascist)
-function createPolicyDeck(): PolicyCard[] {
-  const deck: PolicyCard[] = [
-    ...Array(6).fill('liberal'),
-    ...Array(11).fill('fascist'),
-  ];
-  return shuffle(deck);
-}
-
-// Fisher-Yates shuffle
-function shuffle<T>(array: T[]): T[] {
-  const result = [...array];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
-}
-
-// Initialize a new game
+// Initialize a new game. The same seed and player count give the same deal:
+// roles by seat, starting President and deck order.
 export function createGame(
   gameId: string,
-  playerSetup: Array<{ id: string; name: string; model: string }>
+  playerSetup: Array<{ id: string; name: string; model: string }>,
+  seed: number = randomSeed()
 ): GameState {
   const playerCount = playerSetup.length;
   const { liberals, fascists } = getRoleDistribution(playerCount);
+  let rngState = seed | 0;
 
   // Create role array: 1 Hitler + fascists + liberals
-  const roles: Role[] = shuffle([
+  let roles: Role[];
+  [roles, rngState] = shuffle<Role>([
     'hitler',
     ...Array(fascists).fill('fascist'),
     ...Array(liberals).fill('liberal'),
-  ]);
+  ], rngState);
 
   const players: Player[] = playerSetup.map((p, i) => ({
     id: p.id,
@@ -59,7 +45,12 @@ export function createGame(
   }));
 
   // Random starting president
-  const startingPresident = Math.floor(Math.random() * playerCount);
+  let startingPresident: number;
+  [startingPresident, rngState] = nextInt(rngState, playerCount);
+
+  // Policy deck: 6 Liberal, 11 Fascist
+  let drawPile: PolicyCard[];
+  [drawPile, rngState] = shuffle<PolicyCard>([...Array(6).fill('liberal'), ...Array(11).fill('fascist')], rngState);
 
   return {
     id: gameId,
@@ -72,7 +63,7 @@ export function createGame(
     lastPresidentIndex: null,
     lastChancellorIndex: null,
     specialElectionReturnIndex: null,
-    drawPile: createPolicyDeck(),
+    drawPile,
     discardPile: [],
     liberalPolicies: 0,
     fascistPolicies: 0,
@@ -82,7 +73,15 @@ export function createGame(
     drawnCards: [],
     winner: null,
     winCondition: null,
+    seed,
+    rngState,
   };
+}
+
+// Shuffle the discard pile (and any cards left) into a new draw pile
+function reshuffle(game: GameState): GameState {
+  const [drawPile, rngState] = shuffle([...game.drawPile, ...game.discardPile], game.rngState);
+  return { ...game, drawPile, discardPile: [], rngState };
 }
 
 // Get alive players
@@ -218,21 +217,14 @@ export function resolveVote(game: GameState): GameState {
 
 // Enact chaos policy (3 failed elections)
 function enactChaosPolicy(game: GameState): GameState {
-  let { drawPile, discardPile } = game;
-
   // Reshuffle if needed
-  if (drawPile.length === 0) {
-    drawPile = shuffle(discardPile);
-    discardPile = [];
-  }
+  if (game.drawPile.length === 0) game = reshuffle(game);
 
-  const policy = drawPile[0];
-  drawPile = drawPile.slice(1);
+  const policy = game.drawPile[0];
 
   let newGame: GameState = {
     ...game,
-    drawPile,
-    discardPile,
+    drawPile: game.drawPile.slice(1),
     failedElections: 0,
     lastPresidentIndex: null,
     lastChancellorIndex: null,
@@ -248,22 +240,13 @@ export function drawCards(game: GameState): GameState {
     throw new Error('Not in president legislation phase');
   }
 
-  let { drawPile, discardPile } = game;
-
   // Reshuffle if needed
-  if (drawPile.length < 3) {
-    drawPile = shuffle([...drawPile, ...discardPile]);
-    discardPile = [];
-  }
-
-  const drawnCards = drawPile.slice(0, 3);
-  drawPile = drawPile.slice(3);
+  if (game.drawPile.length < 3) game = reshuffle(game);
 
   return {
     ...game,
-    drawPile,
-    discardPile,
-    drawnCards,
+    drawPile: game.drawPile.slice(3),
+    drawnCards: game.drawPile.slice(0, 3),
   };
 }
 
@@ -309,8 +292,7 @@ export function chancellorEnact(game: GameState, enactIndex: number): GameState 
 // End of legislative session: reshuffle if fewer than 3 cards remain,
 // so a policy peek sees the cards the next president will actually draw
 function reshuffleIfLow(game: GameState): GameState {
-  if (game.drawPile.length >= 3) return game;
-  return { ...game, drawPile: shuffle([...game.drawPile, ...game.discardPile]), discardPile: [] };
+  return game.drawPile.length >= 3 ? game : reshuffle(game);
 }
 
 // Veto unlocks with the 5th fascist policy

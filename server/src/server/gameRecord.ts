@@ -4,7 +4,7 @@ import { createGame } from '../game/engine.js';
 import type { GameState, GameHistory, PolicyCard } from '../game/types.js';
 import type { ChatMessage } from '../ai/openrouter.js';
 import { getSystemPrompt, PROMPT_VERSION } from '../ai/prompts.js';
-import type { LLMCallRecord, AbortReason } from '../logging/gameLog.js';
+import type { LLMCallRecord, AbortReason, BatchInfo } from '../logging/gameLog.js';
 import type { TraceEntry } from './trace.js';
 
 // State snapshot for step navigation
@@ -63,6 +63,8 @@ export interface GameRecord {
   abortReason: AbortReason | null;
   // Technical log shown to the user
   trace: TraceEntry[];
+  // Set when the game is part of a batch run
+  batch: BatchInfo | null;
 }
 
 // Store active games
@@ -72,9 +74,10 @@ export function createGameRecord(
   gameId: string,
   players: Array<{ id: string; name: string; model: string }>,
   apiKey: string | null | undefined,
-  settings: Partial<GameSettings> | undefined
+  settings: Partial<GameSettings> | undefined,
+  options: { seed?: number; batch?: BatchInfo } = {}
 ): GameRecord {
-  const gameState = createGame(gameId, players);
+  const gameState = createGame(gameId, players, options.seed);
 
   const history: GameHistory = {
     gameId,
@@ -122,6 +125,7 @@ export function createGameRecord(
     legislation: null,
     abortReason: null,
     trace: [],
+    batch: options.batch ?? null,
   };
   games.set(gameId, record);
   return record;

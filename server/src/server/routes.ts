@@ -5,6 +5,7 @@ import type { Server } from 'socket.io';
 import { games, createGameRecord } from './gameRecord.js';
 import { sanitizeGameState } from './state.js';
 import { runGameLoop } from './gameLoop.js';
+import { isSeed } from '../game/random.js';
 
 export function registerRoutes(app: Express, io: Server) {
   // REST API endpoints
@@ -13,14 +14,18 @@ export function registerRoutes(app: Express, io: Server) {
   });
 
   app.post('/api/games', (req, res) => {
-    const { players, apiKey, settings } = req.body;
+    const { players, apiKey, settings, seed } = req.body;
 
     if (!players || players.length < 5 || players.length > 10) {
       return res.status(400).json({ error: 'Need 5-10 players' });
     }
+    // Optional: replays the deal of an earlier game (its log records the seed)
+    if (seed !== undefined && !isSeed(seed)) {
+      return res.status(400).json({ error: 'seed must be an integer from 0 to 4294967295' });
+    }
 
     const gameId = `game-${Date.now()}`;
-    const game = createGameRecord(gameId, players, apiKey, settings);
+    const game = createGameRecord(gameId, players, apiKey, settings, { seed });
 
     res.json({ gameId, state: sanitizeGameState(game.state) });
   });
@@ -57,7 +62,8 @@ export function registerRoutes(app: Express, io: Server) {
     res.json({ status: 'started' });
 
     // Start the game loop in background
-    runGameLoop(req.params.gameId, io);
+    const gameId = req.params.gameId;
+    runGameLoop(gameId, (event, data) => io.to(gameId).emit(event, data));
   });
 
   app.post('/api/games/:gameId/pause', (req, res) => {

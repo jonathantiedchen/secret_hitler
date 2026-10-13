@@ -8,7 +8,8 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "analyze": "tsx src/analysis/cli.ts"
+    "analyze": "tsx src/analysis/cli.ts",
+    "batch": "tsx src/batch/cli.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
