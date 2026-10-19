@@ -14,8 +14,17 @@ describe('extractJson', () => {
     expect(extractJson(reply)).toEqual({ value: { action: { type: 'vote', vote: 'ja' } }, unwrapped: true });
   });
 
+  it('reads line breaks and tabs written raw inside strings, keeping them in the text', () => {
+    const reply = '{\n  "thought": "Deck math:\nR1: 3 F out.\tStill \\"unlucky\\"?",\n  "action": {"type": "vote", "vote": "ja"}\n}';
+    expect(extractJson(reply)).toEqual({
+      value: { thought: 'Deck math:\nR1: 3 F out.\tStill "unlucky"?', action: { type: 'vote', vote: 'ja' } },
+      unwrapped: true,
+    });
+  });
+
   it.each([
     ['no JSON at all', 'I vote ja.'],
+    ['an unescaped quote inside a string', '{"thought": "He said "yes"\nso I vote", "action": {"type": "vote", "vote": "ja"}}'],
     ['a cut-off object', '```json\n{"thought":"a very long'],
     ['a list, not an object', 'Answer: [1, 2]'],
   ])('finds nothing in %s', (_name, reply) => {
